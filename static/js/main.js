@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Client-side form validation and UI interactivity for the Nmap Scanner GUI.
+ * Client-side form validation and UI interactivity for the Scanlyne GUI.
  *
  * You'll build three features here:
  *

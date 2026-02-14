@@ -1,4 +1,4 @@
-"""Flask application factory for the Nmap Scanner GUI."""
+"""Flask application factory for the Scanlyne GUI."""
 
 import logging
 import os
