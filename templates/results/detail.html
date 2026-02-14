@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Scan #{{ scan.id }} - Nmap Scanner{% endblock %}
+
+{% block content %}
+<h1>Scan #{{ scan.id }}</h1>
+
+<div class="scan-meta">
+    <p><strong>Target:</strong> {{ scan.target }}</p>
+    <p><strong>Flags:</strong> <code>{{ scan.flags or "none" }}</code></p>
+    <p><strong>Status:</strong>
+        <span class="status status-{{ scan.status }}">{{ scan.status }}</span>
+    </p>
+    <p><strong>Started:</strong> {{ scan.started_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+    {% if scan.completed_at %}
+    <p><strong>Completed:</strong> {{ scan.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+    {% endif %}
+</div>
+
+{% if scan.hosts %}
+<h2>Hosts ({{ scan.hosts | length }})</h2>
+
+{% for host in scan.hosts %}
+<div class="host-card">
+    <h3>{{ host.address }}{% if host.hostname %} ({{ host.hostname }}){% endif %}</h3>
+    <p class="host-status">Status: <span class="status status-{{ host.status }}">{{ host.status }}</span></p>
+
+    {% if host.ports %}
+    <table class="port-table">
+        <thead>
+            <tr>
+                <th>Port</th>
+                <th>Protocol</th>
+                <th>State</th>
+                <th>Service</th>
+                <th>Version</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for port in host.ports %}
+            <tr>
+                <td>{{ port.port_number }}</td>
+                <td>{{ port.protocol }}</td>
+                <td><span class="state state-{{ port.state }}">{{ port.state }}</span></td>
+                <td>{{ port.service_name or "—" }}</td>
+                <td>{{ port.service_version or "—" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No ports found for this host.</p>
+    {% endif %}
+</div>
+{% endfor %}
+
+{% else %}
+<p class="empty-state">No hosts discovered in this scan.</p>
+{% endif %}
+{% endblock %}

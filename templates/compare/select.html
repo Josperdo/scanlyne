@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Scans - Nmap Scanner{% endblock %}
+
+{% block content %}
+<h1>Compare Scans</h1>
+
+{% if scans | length >= 2 %}
+<form id="compare-form" action="{{ url_for('compare.run_diff') }}" method="POST">
+    <div class="compare-selectors">
+        <div class="form-group">
+            <label for="scan_a">Baseline Scan (older)</label>
+            <select id="scan_a" name="scan_a" required>
+                <option value="">Select a scan...</option>
+                {% for scan in scans %}
+                <option value="{{ scan.id }}">
+                    #{{ scan.id }} — {{ scan.target }} ({{ scan.started_at.strftime('%Y-%m-%d %H:%M') }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="scan_b">Current Scan (newer)</label>
+            <select id="scan_b" name="scan_b" required>
+                <option value="">Select a scan...</option>
+                {% for scan in scans %}
+                <option value="{{ scan.id }}">
+                    #{{ scan.id }} — {{ scan.target }} ({{ scan.started_at.strftime('%Y-%m-%d %H:%M') }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Compare</button>
+</form>
+{% else %}
+<p class="empty-state">
+    You need at least two completed scans to compare.
+    <a href="{{ url_for('scan.index') }}">Run a scan</a>.
+</p>
+{% endif %}
+{% endblock %}

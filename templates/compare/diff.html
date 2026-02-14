@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Scan Diff - Nmap Scanner{% endblock %}
+
+{% block content %}
+<h1>Scan Comparison</h1>
+
+<div class="diff-header">
+    <div class="diff-scan">
+        <strong>Baseline:</strong> Scan #{{ scan_a.id }} — {{ scan_a.target }}
+        ({{ scan_a.started_at.strftime('%Y-%m-%d %H:%M') }})
+    </div>
+    <div class="diff-scan">
+        <strong>Current:</strong> Scan #{{ scan_b.id }} — {{ scan_b.target }}
+        ({{ scan_b.started_at.strftime('%Y-%m-%d %H:%M') }})
+    </div>
+</div>
+
+{% if diff.new_hosts %}
+<section class="diff-section">
+    <h2 class="diff-added">New Hosts ({{ diff.new_hosts | length }})</h2>
+    {% for host in diff.new_hosts %}
+    <div class="host-card diff-card-added">
+        <h3>{{ host.address }}{% if host.hostname %} ({{ host.hostname }}){% endif %}</h3>
+        {% if host.ports %}
+        <ul>
+            {% for port in host.ports %}
+            <li>{{ port.port }}/{{ port.protocol }} — {{ port.state }} — {{ port.service or "unknown" }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
+
+{% if diff.removed_hosts %}
+<section class="diff-section">
+    <h2 class="diff-removed">Removed Hosts ({{ diff.removed_hosts | length }})</h2>
+    {% for host in diff.removed_hosts %}
+    <div class="host-card diff-card-removed">
+        <h3>{{ host.address }}{% if host.hostname %} ({{ host.hostname }}){% endif %}</h3>
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
+
+{% if diff.changed_hosts %}
+<section class="diff-section">
+    <h2>Changed Hosts ({{ diff.changed_hosts | length }})</h2>
+    {% for host in diff.changed_hosts %}
+    <div class="host-card">
+        <h3>{{ host.address }}{% if host.hostname %} ({{ host.hostname }}){% endif %}</h3>
+
+        {% if host.new_ports %}
+        <h4 class="diff-added">New Ports</h4>
+        <table class="port-table">
+            <thead>
+                <tr><th>Port</th><th>Protocol</th><th>State</th><th>Service</th></tr>
+            </thead>
+            <tbody>
+                {% for port in host.new_ports %}
+                <tr class="row-added">
+                    <td>{{ port.port }}</td>
+                    <td>{{ port.protocol }}</td>
+                    <td>{{ port.state }}</td>
+                    <td>{{ port.service or "—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if host.removed_ports %}
+        <h4 class="diff-removed">Closed/Removed Ports</h4>
+        <table class="port-table">
+            <thead>
+                <tr><th>Port</th><th>Protocol</th><th>State</th><th>Service</th></tr>
+            </thead>
+            <tbody>
+                {% for port in host.removed_ports %}
+                <tr class="row-removed">
+                    <td>{{ port.port }}</td>
+                    <td>{{ port.protocol }}</td>
+                    <td>{{ port.state }}</td>
+                    <td>{{ port.service or "—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if host.changed_services %}
+        <h4 class="diff-changed">Service Changes</h4>
+        <table class="port-table">
+            <thead>
+                <tr><th>Port</th><th>Protocol</th><th>Old State</th><th>New State</th><th>Old Service</th><th>New Service</th></tr>
+            </thead>
+            <tbody>
+                {% for change in host.changed_services %}
+                <tr class="row-changed">
+                    <td>{{ change.port }}</td>
+                    <td>{{ change.protocol }}</td>
+                    <td>{{ change.old_state }}</td>
+                    <td>{{ change.new_state }}</td>
+                    <td>{{ change.old_service or "—" }}</td>
+                    <td>{{ change.new_service or "—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
+
+{% if not diff.new_hosts and not diff.removed_hosts and not diff.changed_hosts %}
+<p class="empty-state">No differences found between these two scans.</p>
+{% endif %}
+{% endblock %}

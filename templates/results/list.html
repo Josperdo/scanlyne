@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Scan History - Nmap Scanner{% endblock %}
+
+{% block content %}
+<h1>Scan History</h1>
+
+{% if scans %}
+<table class="scan-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Target</th>
+            <th>Flags</th>
+            <th>Status</th>
+            <th>Started</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for scan in scans %}
+        <tr>
+            <td>{{ scan.id }}</td>
+            <td>{{ scan.target }}</td>
+            <td><code>{{ scan.flags or "—" }}</code></td>
+            <td>
+                <span class="status status-{{ scan.status }}">{{ scan.status }}</span>
+            </td>
+            <td>{{ scan.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+                <a href="{{ url_for('results.detail', scan_id=scan.id) }}" class="btn btn-small">
+                    View
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty-state">No scans yet. <a href="{{ url_for('scan.index') }}">Run your first scan</a>.</p>
+{% endif %}
+{% endblock %}

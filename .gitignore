@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+*.egg-info/
+
+# Flask
+instance/
+
+# Environment
+.env
+
+# Scan output (regenerated at runtime)
+scans/*.xml
+
+# IDE
+.vscode/
+.idea/
+
+# Other
+Claude.md
+Lessons.md
+tasks/lessons.md

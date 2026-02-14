@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}New Scan - Nmap Scanner{% endblock %}
+
+{% block content %}
+<h1>New Scan</h1>
+
+<form id="scan-form" action="{{ url_for('scan.start_scan') }}" method="POST">
+    <div class="form-group">
+        <label for="target">Target</label>
+        <input
+            type="text"
+            id="target"
+            name="target"
+            placeholder="e.g. 192.168.1.0/24 or scanme.nmap.org"
+            required
+        >
+        <small>IP address, CIDR range, or hostname</small>
+    </div>
+
+    <div class="form-group">
+        <label for="flags">Flags</label>
+        <input
+            type="text"
+            id="flags"
+            name="flags"
+            placeholder="e.g. -sV -T4"
+        >
+        <small>Optional nmap flags (e.g. -sS, -sV, -O, -A, -T4, -p 1-1000)</small>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Start Scan</button>
+</form>
+{% endblock %}
