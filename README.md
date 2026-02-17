@@ -1,4 +1,4 @@
-# Scanlyne
+# Scanlyne - Work in Progress
 
 A Flask-based web interface for running nmap scans, viewing results, and comparing scans to detect network changes.
 
