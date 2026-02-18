@@ -20,6 +20,6 @@ scans/*.xml
 .idea/
 
 # Other
-Claude.md
+Guidelines.md
 Lessons.md
 tasks/lessons.md
