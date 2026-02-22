@@ -7,7 +7,12 @@ db = SQLAlchemy()
 
 
 class Scan(db.Model):
-    """Represents a single nmap scan execution."""
+    """Represents a single nmap scan execution.
+
+    Baseline scans serve as the reference point for change detection.
+    Only one scan per target should be marked as the baseline at a time;
+    enforcing that uniqueness is left to the application layer.
+    """
 
     __tablename__ = "scans"
 
@@ -23,10 +28,15 @@ class Scan(db.Model):
         db.String(20), nullable=False, default="pending"
     )  # pending, running, completed, failed
 
+    # Change-detection fields
+    is_baseline = db.Column(db.Boolean, nullable=False, default=False)
+    label = db.Column(db.String(100), nullable=True)  # e.g. "post-patch baseline"
+
     hosts = db.relationship("Host", backref="scan", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
-        return f"<Scan {self.id} target={self.target} status={self.status}>"
+        baseline_flag = " [baseline]" if self.is_baseline else ""
+        return f"<Scan {self.id} target={self.target} status={self.status}{baseline_flag}>"
 
 
 class Host(db.Model):

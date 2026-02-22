@@ -58,6 +58,31 @@ def start_scan():
     pass
 
 
+@bp.route("/scan/<int:scan_id>/set-baseline", methods=["POST"])
+def set_baseline(scan_id: int):
+    """Mark a completed scan as the baseline for its target.
+
+    Promotes this scan to baseline status and clears the baseline flag from
+    any previously-baselined scan for the same target. Only completed scans
+    should be eligible.
+
+    Flow:
+        1. Look up the scan by scan_id (404 if not found)
+        2. Verify scan.status == "completed" (flash error and redirect if not)
+        3. Clear is_baseline on any existing baseline for the same target
+        4. Set scan.is_baseline = True
+        5. Commit, flash a success message, redirect to the scan's detail page
+    """
+    # TODO: Look up the scan or 404
+    # TODO: Guard against promoting a non-completed scan
+    # TODO: Clear existing baseline for this target:
+    #       Scan.query.filter_by(target=scan.target, is_baseline=True).all()
+    #       then set each .is_baseline = False
+    # TODO: Set scan.is_baseline = True and commit
+    # TODO: Flash success and redirect to results.detail
+    pass
+
+
 def _store_parsed_results(scan: Scan, parsed: dict) -> None:
     """Persist parsed nmap results into the database.
 

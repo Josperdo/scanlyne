@@ -10,9 +10,9 @@
     <nav class="navbar">
         <div class="nav-brand">Scanlyne</div>
         <ul class="nav-links">
-            <li><a href="{{ url_for('scan.index') }}">New Scan</a></li>
+            <li><a href="{{ url_for('compare.select') }}">Change Detection</a></li>
             <li><a href="{{ url_for('results.list_scans') }}">Scan History</a></li>
-            <li><a href="{{ url_for('compare.select') }}">Compare Scans</a></li>
+            <li><a href="{{ url_for('scan.index') }}">Run Scan</a></li>
         </ul>
     </nav>
 
@@ -31,7 +31,7 @@
     </main>
 
     <footer class="footer">
-        <p>Scanlyne GUI</p>
+        <p>Scanlyne — network change detection</p>
     </footer>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>

@@ -1,104 +1,181 @@
-# Scanlyne - Work in Progress
+# Scanlyne
 
-A Flask-based web interface for running nmap scans, viewing results, and comparing scans to detect network changes.
+Network change detection with security context. Scanlyne runs nmap scans, stores the results, and shows you what changed between snapshots — with plain-English notes on why a given change might be worth investigating.
+
+---
+
+## The gap this fills
+
+Most network monitoring tools are either too much or too little:
+
+- **Enterprise solutions** (Nessus, Qualys, SolarWinds) are expensive, complex to operate, and built for teams with dedicated security staff.
+- **Raw nmap CLI** gives you everything but answers nothing. A 500-line XML dump doesn't tell you whether the new open port on your NAS is a misconfiguration or expected.
+
+Scanlyne sits in between. It's for people who run their own infrastructure — homelabbers, sysadmins, small teams — who want a simple answer to: **"What changed on my network since I last checked, and should I care?"**
+
+---
+
+## Who it's for
+
+- **Homelabbers** tracking service sprawl across VMs, containers, and devices
+- **Sysadmins** verifying that patch windows or config changes didn't leave unexpected ports open
+- **Security analysts** who want a lightweight audit trail without standing up a full SIEM
+- **Students** learning network security concepts through hands-on tooling
+
+---
+
+## What it does
+
+1. **Run a scan** — submit a target (IP, CIDR, hostname) and optional nmap flags through the web UI. Results are stored in SQLite and the raw XML is kept on disk.
+
+2. **Save a baseline** — after a scan that reflects a known-good state, mark it as the baseline for that target. This is the reference point all future scans are compared against.
+
+3. **Detect changes** — run another scan, then open Change Detection. Scanlyne diffs the two scans and surfaces:
+   - **New hosts** — devices that appeared on the network
+   - **Removed hosts** — devices that disappeared
+   - **Changed hosts** — same IP, but ports or services differ:
+     - Ports that opened or closed
+     - Services whose version or state changed
+
+4. **Triage with context** — each change includes a short risk hint. Not a verdict, just a starting point:
+
+```
+[!] New open port: 3306/tcp — MySQL — database, verify intentional exposure
+[!] Port 4444/tcp opened — Common reverse shell port
+[~] Service version changed on 443/tcp — may indicate an upgrade or a substitution
+[✓] Port 8080/tcp closed — previously open, now gone
+```
+
+---
+
+## Example: catching an unexpected service
+
+You baseline your home server on a Sunday. Mid-week you update some packages. You run another scan and open Change Detection:
+
+```
+Target: 192.168.1.10
+Baseline: Scan #3 (2024-11-10 14:32)  →  Current: Scan #7 (2024-11-13 09:15)
+
+Changed hosts
+└── 192.168.1.10
+
+    New ports
+    ┌─────────┬──────────┬───────┬────────────────────────────────────────────────────┐
+    │ Port    │ Protocol │ State │ Risk hint                                          │
+    ├─────────┼──────────┼───────┼────────────────────────────────────────────────────┤
+    │ 6379    │ tcp      │ open  │ Redis — often misconfigured with no auth           │
+    └─────────┴──────────┴───────┴────────────────────────────────────────────────────┘
+
+    Service changes
+    ┌──────┬──────────┬─────────────────────┬─────────────────────┬──────────────────┐
+    │ Port │ Protocol │ Old service         │ New service         │ Risk hint        │
+    ├──────┼──────────┼─────────────────────┼─────────────────────┼──────────────────┤
+    │ 443  │ tcp      │ Apache httpd 2.4.51 │ Apache httpd 2.4.58 │ Version changed  │
+    └──────┴──────────┴─────────────────────┴─────────────────────┴──────────────────┘
+```
+
+Redis wasn't there before. A package update pulled it in as a dependency and it bound to all interfaces. Worth knowing.
+
+---
+
+## Architecture
+
+```
+scanlyne/
+├── app.py              # Flask application factory
+├── config.py           # Configuration (SECRET_KEY, DB path, scan output dir)
+├── models.py           # SQLAlchemy models: Scan, Host, Port
+├── scanner.py          # nmap subprocess execution with input validation
+├── parser.py           # nmap XML → Python dict
+├── diff.py             # Scan comparison + risk hint generation
+├── blueprints/
+│   ├── scan.py         # Run scans, manage baselines
+│   ├── results.py      # Scan history and detail views
+│   └── compare.py      # Change detection — the primary view
+├── templates/
+│   ├── base.html
+│   ├── scan/
+│   ├── results/
+│   └── compare/
+└── static/
+    ├── css/style.css
+    └── js/main.js
+```
+
+**Data persistence:** SQLite via Flask-SQLAlchemy. No external database required. Scan results live in `instance/scanner.db`. Raw nmap XML is stored in `scans/` and referenced by path in the database.
+
+**Dependencies:** Flask, Flask-SQLAlchemy, gunicorn. No message queues, no background workers, no external services.
+
+---
 
 ## Setup
 
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/macOS
-venv\Scripts\activate     # Windows
+**Requirements:** Python 3.8+, nmap installed and in PATH.
 
+```bash
+git clone <repo-url>
+cd scanlyne
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
 ```
 
-Requires [nmap](https://nmap.org/download.html) installed and available in PATH.
+Open `http://localhost:5000`. The database and scan output directory are created automatically on first run.
 
-## Project Structure
+For production:
 
-```
-├── app.py              # Flask app factory (done)
-├── config.py           # App configuration (done)
-├── models.py           # SQLAlchemy models: Scan, Host, Port (done)
-├── parser.py           # Nmap XML output parser (stub)
-├── scanner.py          # Nmap subprocess runner with input validation (stub)
-├── diff.py             # Scan comparison engine (stub)
-├── blueprints/
-│   ├── scan.py         # Routes: scan form + execution (stub)
-│   ├── results.py      # Routes: scan history + detail view (stub)
-│   └── compare.py      # Routes: scan diff selection + display (stub)
-├── templates/          # Jinja2 templates (done)
-├── static/
-│   ├── css/style.css   # Stylesheet (done)
-│   └── js/main.js      # Client-side validation + interactivity (stub)
-└── scans/              # Nmap XML output storage (runtime)
+```bash
+gunicorn "app:create_app()"
 ```
 
-## Implementation Roadmap
+Set `SECRET_KEY` via environment variable before deploying.
 
-### Phase 1: Flask Basics — Query & Render
+---
 
-- [ ] `blueprints/results.py` — `list_scans()`: query all scans, render the list template
-- [ ] `blueprints/results.py` — `detail()`: look up scan by ID, handle 404, render detail template
+## Workflow
 
-### Phase 2: XML Parsing
+```
+Run Scan → mark as baseline → Run Scan → Change Detection → review diff
+```
 
-- [ ] `parser.py` — file existence check + `FileNotFoundError`
-- [ ] `parser.py` — XML parsing with `ET.parse()` + `ParseError` handling
-- [ ] `parser.py` — extract scan-level metadata from root element attributes
-- [ ] `parser.py` — extract host data: address, hostname, status
-- [ ] `parser.py` — extract port data: number, protocol, state, service, version
-- [ ] `parser.py` — assemble and return the final structured dict
+1. **Run Scan** — enter a target and flags (e.g. `-sV -T4`). Results are stored automatically.
+2. **Mark as baseline** — on the scan detail page, promote a completed scan to baseline status. Only one baseline per target is active at a time.
+3. **Run another scan** — same target, same or different flags.
+4. **Change Detection** — the app surfaces the baseline-vs-latest pair automatically. One click to see the diff.
+5. **Manual comparison** — compare any two completed scans, not just baseline pairs.
 
-### Phase 3: Scan Execution (Security-Critical)
+---
 
-- [ ] `scanner.py` — populate `ALLOWED_FLAGS` set with safe nmap options
-- [ ] `scanner.py` — write `TARGET_PATTERN` regex (block shell metacharacters)
-- [ ] `scanner.py` — implement `validate_target()` (empty check, length check, pattern match)
-- [ ] `scanner.py` — implement `validate_flags()` (tokenize with `shlex.split`, check whitelist)
-- [ ] `scanner.py` — implement `run_scan()` (build command list, subprocess.run, error handling)
+## Security design
 
-### Phase 4: Scan Comparison
+Scanlyne executes nmap as a subprocess. Several controls are in place to prevent abuse:
 
-- [ ] `diff.py` — `compare_scans()`: build address-keyed dicts, set operations for new/removed hosts
-- [ ] `diff.py` — `_compare_host_ports()`: port-level diff with (port, protocol) tuple keys
-- [ ] `diff.py` — detect service/state changes on shared ports
+- **Target validation** — regex allowlist blocks shell metacharacters (`; | & $ >` etc.)
+- **Flag allowlist** — only a fixed set of nmap flags are permitted (no `--script`, no `--lua`)
+- **No `shell=True`** — subprocess is always called with an argument list
+- **No authentication** — Scanlyne is designed for trusted local/LAN use. Do not expose it to the public internet.
 
-### Phase 5: Blueprint Route Logic
+---
 
-- [ ] `blueprints/scan.py` — `start_scan()`: read form data, validate, create Scan record
-- [ ] `blueprints/scan.py` — `start_scan()`: call `run_scan()`, handle success/failure
-- [ ] `blueprints/scan.py` — `_store_parsed_results()`: persist hosts and ports to DB
-- [ ] `blueprints/compare.py` — `select()`: query completed scans, render selection form
-- [ ] `blueprints/compare.py` — `run_diff()`: validate inputs, parse XMLs, compare, render diff
+## Known limitations
 
-### Phase 6: Client-Side JavaScript
+- Scans run synchronously. Long scans (large CIDRs, slow targets) will block the request until nmap finishes.
+- No user authentication. Access control is your network's job.
+- One baseline per target. More granular baseline management is not implemented.
+- No scheduled scanning. Scans are triggered manually.
 
-- [ ] `static/js/main.js` — `initScanForm()`: validate target field on submit
-- [ ] `static/js/main.js` — `initCompareForm()`: ensure two different scans are selected
-- [ ] `static/js/main.js` — `initFlashDismiss()`: click-to-dismiss flash messages
-- [ ] `static/js/main.js` — `showValidationError()`: display error messages near inputs
+---
 
-### Phase 7: Polish & Verification
+## Implementation status
 
-- [ ] App starts without import errors (`python app.py`)
-- [ ] Database creates on first run
-- [ ] Scan form submits and triggers nmap
-- [ ] Results page shows scan history and detail views
-- [ ] Compare page shows differences between two scans
-- [ ] Client-side validation blocks bad inputs before server round-trip
-
-## Security Considerations
-
-- Scan targets are validated against a whitelist regex — no shell metacharacters allowed
-- Nmap flags are checked against an explicit allowlist — arbitrary flags like `--script` are blocked
-- `subprocess.run()` is called without `shell=True` to prevent command injection
-- Client-side validation is defense-in-depth only — all validation is duplicated server-side
-- `SECRET_KEY` should be set via environment variable in production
-
-## Known Limitations
-
-- Scans run synchronously (the request blocks until nmap finishes)
-- No authentication — anyone with access to the server can run scans
-- No export functionality yet (CSV, JSON, PDF)
+| Component | Status | Notes |
+|---|---|---|
+| `scanner.py` | Complete | nmap execution with input validation |
+| `models.py` | Complete | Scan, Host, Port + baseline fields |
+| `parser.py` | Stub | nmap XML → dict |
+| `diff.py` | Stub | Comparison + risk hint generation |
+| `blueprints/results.py` | Stub | Scan history and detail routes |
+| `blueprints/scan.py` | Stub | Scan form, execution, baseline management |
+| `blueprints/compare.py` | Stub | Change detection routes |
+| `static/js/main.js` | Stub | Client-side form validation |

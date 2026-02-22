@@ -1,44 +1,92 @@
 {% extends "base.html" %}
 
-{% block title %}Compare Scans - Scanlyne{% endblock %}
+{% block title %}Change Detection - Scanlyne{% endblock %}
 
 {% block content %}
-<h1>Compare Scans</h1>
+<h1>Change Detection</h1>
+<p class="page-subtitle">Compare a saved baseline against a newer scan to see what changed on your network.</p>
 
-{% if scans | length >= 2 %}
-<form id="compare-form" action="{{ url_for('compare.run_diff') }}" method="POST">
-    <div class="compare-selectors">
-        <div class="form-group">
-            <label for="scan_a">Baseline Scan (older)</label>
-            <select id="scan_a" name="scan_a" required>
-                <option value="">Select a scan...</option>
-                {% for scan in scans %}
-                <option value="{{ scan.id }}">
-                    #{{ scan.id }} — {{ scan.target }} ({{ scan.started_at.strftime('%Y-%m-%d %H:%M') }})
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label for="scan_b">Current Scan (newer)</label>
-            <select id="scan_b" name="scan_b" required>
-                <option value="">Select a scan...</option>
-                {% for scan in scans %}
-                <option value="{{ scan.id }}">
-                    #{{ scan.id }} — {{ scan.target }} ({{ scan.started_at.strftime('%Y-%m-%d %H:%M') }})
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-    </div>
-
-    <button type="submit" class="btn btn-primary">Compare</button>
-</form>
-{% else %}
-<p class="empty-state">
-    You need at least two completed scans to compare.
-    <a href="{{ url_for('scan.index') }}">Run a scan</a>.
-</p>
+{# ── Fast path: baseline vs. latest ─────────────────────────────────────── #}
+{% if quick_pairs %}
+<section class="section-block">
+    <h2>Baseline vs. Latest</h2>
+    <p>These targets have a saved baseline and at least one newer scan ready to compare.</p>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Target</th>
+                <th>Baseline</th>
+                <th>Latest Scan</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for pair in quick_pairs %}
+            <tr>
+                <td><code>{{ pair.baseline.target }}</code></td>
+                <td>
+                    #{{ pair.baseline.id }}
+                    {% if pair.baseline.label %}
+                        <span class="badge badge-neutral">{{ pair.baseline.label }}</span>
+                    {% endif %}
+                    <br><small>{{ pair.baseline.started_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                </td>
+                <td>
+                    #{{ pair.latest.id }}
+                    <br><small>{{ pair.latest.started_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                </td>
+                <td>
+                    <form action="{{ url_for('compare.baseline_vs_latest') }}" method="POST">
+                        <input type="hidden" name="target" value="{{ pair.baseline.target }}">
+                        <button type="submit" class="btn btn-primary">Compare</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
 {% endif %}
+
+{# ── Manual comparison ───────────────────────────────────────────────────── #}
+<section class="section-block">
+    <h2>Manual Comparison</h2>
+    {% if scans | length >= 2 %}
+    <p>Pick any two completed scans to diff — useful when you want to compare non-adjacent snapshots.</p>
+    <form id="compare-form" action="{{ url_for('compare.run_diff') }}" method="POST">
+        <div class="compare-selectors">
+            <div class="form-group">
+                <label for="scan_a">Baseline Scan (older)</label>
+                <select id="scan_a" name="scan_a" required>
+                    <option value="">Select a scan...</option>
+                    {% for scan in scans %}
+                    <option value="{{ scan.id }}">
+                        #{{ scan.id }}{% if scan.is_baseline %} [baseline]{% endif %} — {{ scan.target }} ({{ scan.started_at.strftime('%Y-%m-%d %H:%M') }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="scan_b">Current Scan (newer)</label>
+                <select id="scan_b" name="scan_b" required>
+                    <option value="">Select a scan...</option>
+                    {% for scan in scans %}
+                    <option value="{{ scan.id }}">
+                        #{{ scan.id }}{% if scan.is_baseline %} [baseline]{% endif %} — {{ scan.target }} ({{ scan.started_at.strftime('%Y-%m-%d %H:%M') }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Compare</button>
+    </form>
+    {% else %}
+    <p class="empty-state">
+        You need at least two completed scans to compare.
+        <a href="{{ url_for('scan.index') }}">Run a scan</a> to get started.
+    </p>
+    {% endif %}
+</section>
 {% endblock %}

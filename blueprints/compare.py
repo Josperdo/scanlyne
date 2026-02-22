@@ -1,4 +1,15 @@
-"""Blueprint for comparing two scans and viewing differences.
+"""Blueprint for change detection — the primary view of Scanlyne.
+
+The central workflow:
+    1. A user marks a completed scan as the "baseline" for a given target.
+    2. They run a new scan against the same target.
+    3. They land here to see what changed — new hosts, disappeared hosts,
+       opened/closed ports — each annotated with a triage hint.
+
+Two comparison modes are supported:
+    - Baseline vs. latest: fast path; the app auto-selects the saved baseline
+      and the most recent completed scan for the same target.
+    - Manual: user picks any two completed scans from dropdowns.
 
 Hints:
     - The select page shows a form with two dropdowns of completed scans
@@ -6,6 +17,11 @@ Hints:
     - You need to validate: both selected, not the same, both exist, both have XML
     - Use parse_nmap_xml() on each scan's xml_file_path, then compare_scans()
     - Pass scan_a, scan_b, and the diff dict to the template
+    - For the baseline-vs-latest shortcut, query:
+        baseline  = Scan.query.filter_by(target=target, is_baseline=True).first()
+        latest    = Scan.query.filter_by(target=target, status="completed")
+                        .order_by(Scan.started_at.desc()).first()
+      Then verify baseline != latest before running the diff
 """
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
@@ -19,21 +35,37 @@ bp = Blueprint("compare", __name__, url_prefix="/compare")
 
 @bp.route("/")
 def select():
-    """Render the scan selection form for comparison."""
-    # TODO: Query only completed scans, ordered by most recent
-    # TODO: Render "compare/select.html" with the scans list
+    """Render the change-detection landing page.
+
+    Shows:
+        - A "baseline vs. latest" quick-compare section, grouped by target,
+          for any target that has both a saved baseline and a newer completed scan.
+        - A manual comparison form with two dropdowns for full control.
+
+    Hints:
+        - Query all completed scans: Scan.query.filter_by(status="completed")...
+        - To build the quick-compare list, group completed scans by target,
+          then for each target check whether is_baseline=True exists
+          and whether a more-recent non-baseline scan also exists
+        - Pass both `scans` (for the manual form) and `quick_pairs`
+          (list of {baseline, latest} dicts) to the template
+    """
+    # TODO: Query completed scans ordered by started_at DESC
+    # TODO: Build quick_pairs — list of {baseline: Scan, latest: Scan} for each
+    #       target that has a saved baseline and at least one newer completed scan
+    # TODO: Render "compare/select.html" with scans and quick_pairs
     pass
 
 
 @bp.route("/", methods=["POST"])
 def run_diff():
-    """Compare two selected scans and display the diff.
+    """Compare two selected scans and render the change-detection view.
 
     Validation steps:
         1. Both scan_a and scan_b must be selected
         2. They must be different scans
         3. Both must exist in the database
-        4. Both must have xml_file_path set
+        4. Both must have xml_file_path set (i.e. nmap actually produced output)
     """
     # TODO: Read scan_a and scan_b IDs from request.form
     # TODO: Validate (redirect with flash on any failure):
@@ -45,4 +77,36 @@ def run_diff():
     # TODO: Compare with compare_scans()
     # TODO: Handle FileNotFoundError/ValueError from parsing
     # TODO: Render "compare/diff.html" with scan_a, scan_b, and diff
+    pass
+
+
+@bp.route("/baseline-vs-latest", methods=["POST"])
+def baseline_vs_latest():
+    """Fast-path comparison: saved baseline vs. most recent completed scan.
+
+    Reads a target from the form, looks up its baseline and newest scan,
+    and runs the diff directly — no dropdown selection needed.
+
+    Flow:
+        1. Read "target" from request.form
+        2. Find the baseline scan for that target (is_baseline=True)
+        3. Find the most recent completed scan for that target
+           (order by started_at DESC, exclude the baseline itself)
+        4. Validate both exist and are different
+        5. Parse both XML files and run compare_scans()
+        6. Render "compare/diff.html" with the result
+
+    Hints:
+        - baseline = Scan.query.filter_by(target=target, is_baseline=True).first()
+        - latest   = Scan.query.filter_by(target=target, status="completed")
+                         .filter(Scan.id != baseline.id)
+                         .order_by(Scan.started_at.desc()).first()
+        - Flash a clear message if no baseline is set for this target
+        - Flash a clear message if there's no newer scan to compare against
+    """
+    # TODO: Read target from request.form
+    # TODO: Look up baseline scan for that target
+    # TODO: Look up the newest completed scan for that target (excluding baseline)
+    # TODO: Validate both exist
+    # TODO: Parse both XML files, run compare_scans(), render diff template
     pass
