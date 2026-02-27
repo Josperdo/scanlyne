@@ -65,4 +65,68 @@ def parse_nmap_xml(file_path: str) -> dict[str, Any]:
         FileNotFoundError: If the XML file does not exist.
         ValueError: If the file cannot be parsed as valid XML.
     """
-    pass
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"XML file not found: {file_path}")
+
+    try:
+        tree = ET.parse(file_path)
+    except ET.ParseError as e:
+        raise ValueError(f"Failed to parse nmap XML: {e}")
+
+    root = tree.getroot()
+
+    scan_info = {
+        "command": root.get("args", ""),
+        "start_time": root.get("startstr", ""),
+    }
+
+    hosts = []
+    for host_elem in root.findall("host"):
+        status_elem = host_elem.find("status")
+        status = status_elem.get("state", "unknown") if status_elem is not None else "unknown"
+
+        addr_elem = host_elem.find("address")
+        address = addr_elem.get("addr", "") if addr_elem is not None else ""
+
+        hostname = ""
+        hostnames_elem = host_elem.find("hostnames")
+        if hostnames_elem is not None:
+            hn = hostnames_elem.find("hostname")
+            if hn is not None:
+                hostname = hn.get("name", "")
+
+        ports = []
+        ports_elem = host_elem.find("ports")
+        if ports_elem is not None:
+            for port_elem in ports_elem.findall("port"):
+                state_elem = port_elem.find("state")
+                port_state = state_elem.get("state", "unknown") if state_elem is not None else "unknown"
+
+                service_elem = port_elem.find("service")
+                service_name = ""
+                service_version = ""
+                if service_elem is not None:
+                    service_name = service_elem.get("name", "")
+                    product = service_elem.get("product", "")
+                    version = service_elem.get("version", "")
+                    service_version = f"{product} {version}".strip()
+
+                ports.append({
+                    "port": int(port_elem.get("portid", 0)),
+                    "protocol": port_elem.get("protocol", "tcp"),
+                    "state": port_state,
+                    "service": service_name,
+                    "version": service_version,
+                })
+
+        hosts.append({
+            "address": address,
+            "hostname": hostname,
+            "status": status,
+            "ports": ports,
+        })
+
+    return {
+        "scan_info": scan_info,
+        "hosts": hosts,
+    }

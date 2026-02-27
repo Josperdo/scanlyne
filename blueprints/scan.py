@@ -15,7 +15,7 @@ Flask Blueprint concepts you'll use here:
 import logging
 from datetime import datetime, timezone
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
 
 from models import Host, Port, Scan, db
 from parser import parse_nmap_xml
@@ -45,17 +45,46 @@ def start_scan():
         6. On failure: update status to "failed", flash the error
         7. Redirect to the appropriate page
     """
-    # TODO: Get "target" and "flags" from request.form, strip whitespace
-    # TODO: Validate target is not empty
-    # TODO: Validate target format using validate_target()
-    # TODO: Validate flags using validate_flags()
-    #       (redirect back with flash() on any validation failure)
-    # TODO: Create a Scan model instance, add to db.session, commit
-    # TODO: Try to run the scan — wrap in try/except for ValueError, RuntimeError
-    # TODO: On success: update scan fields, parse XML, store results, commit
-    # TODO: On failure: set scan.status = "failed", commit, flash error
-    # TODO: Redirect to results detail page on success, scan form on failure
-    pass
+    target = request.form.get("target", "").strip()
+    flags = request.form.get("flags", "").strip()
+
+    if not target:
+        flash("Target is required.", "error")
+        return redirect(url_for("scan.index"))
+
+    if not validate_target(target):
+        flash("Invalid target format. Use an IP address, CIDR range, or hostname.", "error")
+        return redirect(url_for("scan.index"))
+
+    valid, err = validate_flags(flags)
+    if not valid:
+        flash(f"Invalid flags: {err}", "error")
+        return redirect(url_for("scan.index"))
+
+    scan = Scan(target=target, flags=flags, status="running")
+    db.session.add(scan)
+    db.session.commit()
+
+    try:
+        xml_path = run_scan(target, flags, current_app.config["SCAN_OUTPUT_DIR"])
+        parsed = parse_nmap_xml(xml_path)
+
+        scan.xml_file_path = xml_path
+        scan.completed_at = datetime.now(timezone.utc)
+        scan.status = "completed"
+
+        _store_parsed_results(scan, parsed)
+        db.session.commit()
+
+        logger.info("Scan %d completed for target %s", scan.id, target)
+        return redirect(url_for("results.detail", scan_id=scan.id))
+
+    except (ValueError, RuntimeError) as e:
+        scan.status = "failed"
+        db.session.commit()
+        flash(f"Scan failed: {e}", "error")
+        logger.error("Scan %d failed: %s", scan.id, e)
+        return redirect(url_for("scan.index"))
 
 
 @bp.route("/scan/<int:scan_id>/set-baseline", methods=["POST"])
@@ -73,14 +102,22 @@ def set_baseline(scan_id: int):
         4. Set scan.is_baseline = True
         5. Commit, flash a success message, redirect to the scan's detail page
     """
-    # TODO: Look up the scan or 404
-    # TODO: Guard against promoting a non-completed scan
-    # TODO: Clear existing baseline for this target:
-    #       Scan.query.filter_by(target=scan.target, is_baseline=True).all()
-    #       then set each .is_baseline = False
-    # TODO: Set scan.is_baseline = True and commit
-    # TODO: Flash success and redirect to results.detail
-    pass
+    scan = db.session.get(Scan, scan_id)
+    if scan is None:
+        abort(404)
+
+    if scan.status != "completed":
+        flash("Only completed scans can be set as a baseline.", "error")
+        return redirect(url_for("results.detail", scan_id=scan_id))
+
+    for existing in Scan.query.filter_by(target=scan.target, is_baseline=True).all():
+        existing.is_baseline = False
+
+    scan.is_baseline = True
+    db.session.commit()
+
+    flash(f"Scan #{scan.id} is now the baseline for {scan.target}.", "success")
+    return redirect(url_for("results.detail", scan_id=scan.id))
 
 
 def _store_parsed_results(scan: Scan, parsed: dict) -> None:
@@ -101,5 +138,23 @@ def _store_parsed_results(scan: Scan, parsed: dict) -> None:
             parsed "service" → Port.service_name
             parsed "version" → Port.service_version
     """
-    # TODO: Implement this
-    pass
+    for host_data in parsed.get("hosts", []):
+        host = Host(
+            scan_id=scan.id,
+            address=host_data["address"],
+            hostname=host_data.get("hostname") or None,
+            status=host_data.get("status", "up"),
+        )
+        db.session.add(host)
+        db.session.flush()
+
+        for port_data in host_data.get("ports", []):
+            port = Port(
+                host_id=host.id,
+                port_number=port_data["port"],
+                protocol=port_data.get("protocol", "tcp"),
+                state=port_data.get("state", "open"),
+                service_name=port_data.get("service") or None,
+                service_version=port_data.get("version") or None,
+            )
+            db.session.add(port)

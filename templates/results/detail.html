@@ -15,6 +15,17 @@
     {% if scan.completed_at %}
     <p><strong>Completed:</strong> {{ scan.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
     {% endif %}
+    <p><strong>Baseline:</strong>
+        {% if scan.is_baseline %}
+        <span class="badge badge-neutral">Active baseline</span>
+        {% elif scan.status == "completed" %}
+        <form action="{{ url_for('scan.set_baseline', scan_id=scan.id) }}" method="POST" style="display:inline">
+            <button type="submit" class="btn btn-small">Set as baseline</button>
+        </form>
+        {% else %}
+        —
+        {% endif %}
+    </p>
 </div>
 
 {% if scan.hosts %}

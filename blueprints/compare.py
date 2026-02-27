@@ -27,7 +27,7 @@ Hints:
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from diff import compare_scans
-from models import Scan
+from models import Scan, db
 from parser import parse_nmap_xml
 
 bp = Blueprint("compare", __name__, url_prefix="/compare")
@@ -50,11 +50,23 @@ def select():
         - Pass both `scans` (for the manual form) and `quick_pairs`
           (list of {baseline, latest} dicts) to the template
     """
-    # TODO: Query completed scans ordered by started_at DESC
-    # TODO: Build quick_pairs — list of {baseline: Scan, latest: Scan} for each
-    #       target that has a saved baseline and at least one newer completed scan
-    # TODO: Render "compare/select.html" with scans and quick_pairs
-    pass
+    scans = Scan.query.filter_by(status="completed").order_by(Scan.started_at.desc()).all()
+
+    by_target: dict[str, list[Scan]] = {}
+    for scan in scans:
+        by_target.setdefault(scan.target, []).append(scan)
+
+    quick_pairs = []
+    for target_scans in by_target.values():
+        baseline = next((s for s in target_scans if s.is_baseline), None)
+        if baseline is None:
+            continue
+        latest = next((s for s in target_scans if not s.is_baseline), None)
+        if latest is None:
+            continue
+        quick_pairs.append({"baseline": baseline, "latest": latest})
+
+    return render_template("compare/select.html", scans=scans, quick_pairs=quick_pairs)
 
 
 @bp.route("/", methods=["POST"])
@@ -67,17 +79,37 @@ def run_diff():
         3. Both must exist in the database
         4. Both must have xml_file_path set (i.e. nmap actually produced output)
     """
-    # TODO: Read scan_a and scan_b IDs from request.form
-    # TODO: Validate (redirect with flash on any failure):
-    #       - Both IDs are present
-    #       - They're not the same
-    #       - Both scans exist in the DB
-    #       - Both have xml_file_path
-    # TODO: Parse both XML files with parse_nmap_xml()
-    # TODO: Compare with compare_scans()
-    # TODO: Handle FileNotFoundError/ValueError from parsing
-    # TODO: Render "compare/diff.html" with scan_a, scan_b, and diff
-    pass
+    scan_a_id = request.form.get("scan_a", "").strip()
+    scan_b_id = request.form.get("scan_b", "").strip()
+
+    if not scan_a_id or not scan_b_id:
+        flash("Please select both scans to compare.", "error")
+        return redirect(url_for("compare.select"))
+
+    if scan_a_id == scan_b_id:
+        flash("Select two different scans to compare.", "error")
+        return redirect(url_for("compare.select"))
+
+    scan_a = db.session.get(Scan, int(scan_a_id))
+    scan_b = db.session.get(Scan, int(scan_b_id))
+
+    if scan_a is None or scan_b is None:
+        flash("One or both selected scans could not be found.", "error")
+        return redirect(url_for("compare.select"))
+
+    if not scan_a.xml_file_path or not scan_b.xml_file_path:
+        flash("One or both scans have no XML output to compare.", "error")
+        return redirect(url_for("compare.select"))
+
+    try:
+        parsed_a = parse_nmap_xml(scan_a.xml_file_path)
+        parsed_b = parse_nmap_xml(scan_b.xml_file_path)
+    except (FileNotFoundError, ValueError) as e:
+        flash(f"Could not read scan data: {e}", "error")
+        return redirect(url_for("compare.select"))
+
+    diff = compare_scans(parsed_a, parsed_b)
+    return render_template("compare/diff.html", scan_a=scan_a, scan_b=scan_b, diff=diff)
 
 
 @bp.route("/baseline-vs-latest", methods=["POST"])
@@ -104,9 +136,33 @@ def baseline_vs_latest():
         - Flash a clear message if no baseline is set for this target
         - Flash a clear message if there's no newer scan to compare against
     """
-    # TODO: Read target from request.form
-    # TODO: Look up baseline scan for that target
-    # TODO: Look up the newest completed scan for that target (excluding baseline)
-    # TODO: Validate both exist
-    # TODO: Parse both XML files, run compare_scans(), render diff template
-    pass
+    target = request.form.get("target", "").strip()
+
+    if not target:
+        flash("No target specified.", "error")
+        return redirect(url_for("compare.select"))
+
+    baseline = Scan.query.filter_by(target=target, is_baseline=True).first()
+    if baseline is None:
+        flash(f"No baseline set for {target}. Open a completed scan and set it as baseline first.", "error")
+        return redirect(url_for("compare.select"))
+
+    latest = (
+        Scan.query.filter_by(target=target, status="completed")
+        .filter(Scan.id != baseline.id)
+        .order_by(Scan.started_at.desc())
+        .first()
+    )
+    if latest is None:
+        flash(f"No newer completed scan found for {target} to compare against the baseline.", "error")
+        return redirect(url_for("compare.select"))
+
+    try:
+        parsed_a = parse_nmap_xml(baseline.xml_file_path)
+        parsed_b = parse_nmap_xml(latest.xml_file_path)
+    except (FileNotFoundError, ValueError) as e:
+        flash(f"Could not read scan data: {e}", "error")
+        return redirect(url_for("compare.select"))
+
+    diff = compare_scans(parsed_a, parsed_b)
+    return render_template("compare/diff.html", scan_a=baseline, scan_b=latest, diff=diff)

@@ -115,15 +115,35 @@ def compare_scans(scan_a: dict[str, Any], scan_b: dict[str, Any]) -> dict[str, A
           (i.e., at least one of new_ports, removed_ports, or changed_services is non-empty)
         - Attach a risk_hint to each new/removed host via _assess_risk()
     """
-    # TODO: Build address-keyed dicts from both scan host lists
-    # TODO: Create sets of addresses from each dict's keys
-    # TODO: Use set difference to find new and removed hosts
-    # TODO: For each new host, attach risk_hint via _assess_risk({"type": "new_host", "host": host})
-    # TODO: For each removed host, attach risk_hint via _assess_risk({"type": "removed_host", "host": host})
-    # TODO: Use set intersection to find hosts in both — call _compare_host_ports() on each
-    # TODO: Only append to changed_hosts if _compare_host_ports() returns non-empty diff sections
-    # TODO: Return the complete diff dict
-    pass
+    hosts_a = {h["address"]: h for h in scan_a.get("hosts", [])}
+    hosts_b = {h["address"]: h for h in scan_b.get("hosts", [])}
+
+    addrs_a = set(hosts_a)
+    addrs_b = set(hosts_b)
+
+    new_hosts = []
+    for addr in addrs_b - addrs_a:
+        host = dict(hosts_b[addr])
+        host["risk_hint"] = _assess_risk({"type": "new_host", "host": host})
+        new_hosts.append(host)
+
+    removed_hosts = []
+    for addr in addrs_a - addrs_b:
+        host = dict(hosts_a[addr])
+        host["risk_hint"] = _assess_risk({"type": "removed_host", "host": host})
+        removed_hosts.append(host)
+
+    changed_hosts = []
+    for addr in addrs_a & addrs_b:
+        host_diff = _compare_host_ports(hosts_a[addr], hosts_b[addr])
+        if host_diff["new_ports"] or host_diff["removed_ports"] or host_diff["changed_services"]:
+            changed_hosts.append(host_diff)
+
+    return {
+        "new_hosts": new_hosts,
+        "removed_hosts": removed_hosts,
+        "changed_hosts": changed_hosts,
+    }
 
 
 def _compare_host_ports(host_a: dict, host_b: dict) -> dict[str, Any]:
@@ -148,12 +168,47 @@ def _compare_host_ports(host_a: dict, host_b: dict) -> dict[str, Any]:
         - For each removed port, call _assess_risk({"type": "removed_port", "port": port_dict})
         - For each changed service, call _assess_risk({"type": "service_change", ...})
     """
-    # TODO: Build (port, protocol) keyed dicts for host_a and host_b ports
-    # TODO: Use set operations to find new/removed port keys
-    # TODO: For ports in both, compare state and service fields
-    # TODO: Attach risk_hint to each new/removed port and changed service via _assess_risk()
-    # TODO: Return the complete per-host diff dict
-    pass
+    ports_a = {(p["port"], p["protocol"]): p for p in host_a.get("ports", [])}
+    ports_b = {(p["port"], p["protocol"]): p for p in host_b.get("ports", [])}
+
+    keys_a = set(ports_a)
+    keys_b = set(ports_b)
+
+    new_ports = []
+    for key in keys_b - keys_a:
+        port = dict(ports_b[key])
+        port["risk_hint"] = _assess_risk({"type": "new_port", "port": port})
+        new_ports.append(port)
+
+    removed_ports = []
+    for key in keys_a - keys_b:
+        port = dict(ports_a[key])
+        port["risk_hint"] = _assess_risk({"type": "removed_port", "port": port})
+        removed_ports.append(port)
+
+    changed_services = []
+    for key in keys_a & keys_b:
+        pa = ports_a[key]
+        pb = ports_b[key]
+        if pa["state"] != pb["state"] or pa["service"] != pb["service"]:
+            change = {
+                "port": pa["port"],
+                "protocol": pa["protocol"],
+                "old_state": pa["state"],
+                "new_state": pb["state"],
+                "old_service": pa["service"],
+                "new_service": pb["service"],
+            }
+            change["risk_hint"] = _assess_risk({"type": "service_change", **change})
+            changed_services.append(change)
+
+    return {
+        "address": host_b["address"],
+        "hostname": host_b.get("hostname", ""),
+        "new_ports": new_ports,
+        "removed_ports": removed_ports,
+        "changed_services": changed_services,
+    }
 
 
 def _assess_risk(change: dict[str, Any]) -> str:
@@ -191,6 +246,57 @@ def _assess_risk(change: dict[str, Any]) -> str:
           a state change from closed/filtered to open is higher priority
         - Return SENSITIVE_PORTS[port_number] as part of the hint when applicable
     """
-    # TODO: Implement triage logic using SENSITIVE_PORTS and EPHEMERAL_RANGE
-    # TODO: Return a plain-English string for each change type
+    change_type = change.get("type")
+
+    if change_type == "new_host":
+        host = change["host"]
+        port_numbers = {p["port"] for p in host.get("ports", [])}
+        sensitive = [SENSITIVE_PORTS[p] for p in port_numbers if p in SENSITIVE_PORTS]
+        if sensitive:
+            return f"New host with sensitive ports open: {'; '.join(sensitive)}. Verify this device is authorized."
+        return "New host appeared on the network — verify this device is authorized."
+
+    if change_type == "removed_host":
+        host = change["host"]
+        port_numbers = {p["port"] for p in host.get("ports", [])}
+        sensitive = [SENSITIVE_PORTS[p] for p in port_numbers if p in SENSITIVE_PORTS]
+        if sensitive:
+            return f"Host disappeared. Previously had sensitive ports: {'; '.join(sensitive)}. Confirm intentional removal."
+        return "Host no longer responds — could be a shutdown, network change, or unexpected removal."
+
+    if change_type == "new_port":
+        port = change["port"]
+        port_num = port["port"]
+        if port_num in SENSITIVE_PORTS:
+            return f"New open port: {SENSITIVE_PORTS[port_num]}"
+        if EPHEMERAL_RANGE[0] <= port_num <= EPHEMERAL_RANGE[1]:
+            return f"Port {port_num} is in the ephemeral range — unusual for a listening service. Investigate what opened it."
+        return f"Port {port_num} is now open — verify this service is expected."
+
+    if change_type == "removed_port":
+        port = change["port"]
+        port_num = port["port"]
+        old_state = port.get("state", "")
+        if old_state == "filtered":
+            return f"Port {port_num} was filtered and is now gone — a firewall rule may have changed, not the service itself."
+        if port_num in SENSITIVE_PORTS:
+            return f"Sensitive port closed: {SENSITIVE_PORTS[port_num]}. Verify the service was intentionally stopped."
+        return f"Port {port_num} is no longer visible — service stopped or firewall rule changed."
+
+    if change_type == "service_change":
+        port_num = change.get("port")
+        old_state = change.get("old_state", "")
+        new_state = change.get("new_state", "")
+        old_service = change.get("old_service", "")
+        new_service = change.get("new_service", "")
+
+        if old_state in ("closed", "filtered") and new_state == "open":
+            hint = f"Port {port_num} changed from {old_state} to open — higher priority."
+            if port_num in SENSITIVE_PORTS:
+                hint += f" {SENSITIVE_PORTS[port_num]}"
+            return hint
+
+        if old_service != new_service and old_service and new_service:
+            return f"Service on port {port_num} changed from '{old_service}' to '{new_service}' — may be an upgrade or unexpected substitution."
+
     return "No specific concern — verify this change is expected."
