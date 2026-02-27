@@ -92,6 +92,10 @@ function initScanForm() {
 
         if (!valid) {
             event.preventDefault();
+        } else {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Scanning…';
         }
     });
 }
