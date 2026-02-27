@@ -43,6 +43,20 @@
         <small>How often to run this scan. Minimum: 1 minute.</small>
     </div>
 
+    <div class="form-group">
+        <label for="webhook_url">Webhook URL <span style="font-weight:normal;color:var(--text-muted)">(optional)</span></label>
+        <input
+            type="url"
+            id="webhook_url"
+            name="webhook_url"
+            placeholder="https://hooks.slack.com/services/… or https://your-server/notify"
+        >
+        <small>
+            If set, Scanlyne will POST a JSON change summary here each time this schedule
+            detects a difference vs. the baseline. Nothing is sent when the scan is clean.
+        </small>
+    </div>
+
     <button type="submit" class="btn btn-primary">Create Schedule</button>
     <a href="{{ url_for('schedules.list_schedules') }}" class="btn btn-small" style="margin-left:0.5rem;">Cancel</a>
 </form>

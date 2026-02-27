@@ -17,6 +17,7 @@
             <th>Flags</th>
             <th>Interval</th>
             <th>Status</th>
+            <th>Webhook</th>
             <th>Last Run</th>
             <th>Next Run</th>
             <th>Actions</th>
@@ -34,6 +35,13 @@
                 <span class="status status-completed">enabled</span>
                 {% else %}
                 <span class="status status-failed">disabled</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if s.webhook_url %}
+                <span class="status status-completed" title="{{ s.webhook_url }}">set</span>
+                {% else %}
+                <span style="color:var(--text-muted)">--</span>
                 {% endif %}
             </td>
             <td>{{ s.last_run_at.strftime('%Y-%m-%d %H:%M') if s.last_run_at else "--" }}</td>

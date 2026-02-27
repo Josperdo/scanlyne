@@ -96,6 +96,9 @@ class Schedule(db.Model):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),  # run at next scheduler tick
     )
+    # Optional URL to POST a JSON change summary to after each scan.
+    # Leave blank to disable notifications for this schedule.
+    webhook_url = db.Column(db.String(500), nullable=True)
 
     def __repr__(self) -> str:
         status = "enabled" if self.enabled else "disabled"

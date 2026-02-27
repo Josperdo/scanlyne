@@ -7,6 +7,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 
 from flask import Flask, Response, render_template, request
+from sqlalchemy import text
 
 from config import Config
 from models import db
@@ -45,6 +46,18 @@ def create_app(config_class: type = Config) -> Flask:
     # Create database tables
     with app.app_context():
         db.create_all()
+        # Add columns that were introduced after initial release.
+        # db.create_all() only creates missing *tables*, not missing columns,
+        # so we handle new columns with a safe ALTER TABLE.  The except swallows
+        # "duplicate column" errors from SQLite when the column already exists.
+        with db.engine.connect() as conn:
+            try:
+                conn.execute(text(
+                    "ALTER TABLE schedules ADD COLUMN webhook_url VARCHAR(500)"
+                ))
+                conn.commit()
+            except Exception:
+                pass  # Column already present
 
     # Configure logging
     logging.basicConfig(
@@ -159,6 +172,7 @@ def _check_scheduled_scans(app: Flask) -> None:
             thread = threading.Thread(
                 target=run_scan_background,
                 args=(app, scan.id, app.config["SCAN_OUTPUT_DIR"]),
+                kwargs={"webhook_url": schedule.webhook_url},
                 daemon=True,
             )
             thread.start()

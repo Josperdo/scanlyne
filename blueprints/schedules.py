@@ -54,10 +54,16 @@ def create_schedule():
         flash("Interval must be a whole number of minutes (minimum 1).", "error")
         return redirect(url_for("schedules.new_schedule"))
 
+    webhook_url = request.form.get("webhook_url", "").strip() or None
+    if webhook_url and not (webhook_url.startswith("http://") or webhook_url.startswith("https://")):
+        flash("Webhook URL must start with http:// or https://", "error")
+        return redirect(url_for("schedules.new_schedule"))
+
     schedule = Schedule(
         target=target,
         flags=flags,
         interval_minutes=interval_minutes,
+        webhook_url=webhook_url,
     )
     db.session.add(schedule)
     db.session.commit()

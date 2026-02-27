@@ -3,9 +3,13 @@
 import logging
 import threading
 from datetime import datetime, timezone
+from typing import Optional
+
+import requests
 
 from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 
+from diff import compare_scans
 from models import Host, Port, Scan, db
 from parser import parse_nmap_xml
 from scanner import run_scan, validate_flags, validate_target
@@ -92,7 +96,12 @@ def set_baseline(scan_id: int):
     return redirect(url_for("results.detail", scan_id=scan.id))
 
 
-def run_scan_background(app, scan_id: int, output_dir: str) -> None:
+def run_scan_background(
+    app,
+    scan_id: int,
+    output_dir: str,
+    webhook_url: Optional[str] = None,
+) -> None:
     """Execute a scan in a background thread and persist the results.
 
     Must be called in a daemon thread. Creates its own application context so
@@ -102,6 +111,8 @@ def run_scan_background(app, scan_id: int, output_dir: str) -> None:
         app: The Flask application instance (not the proxy).
         scan_id: ID of the Scan record already created with status="running".
         output_dir: Directory to write nmap XML output.
+        webhook_url: If set, POST a change summary here after the scan
+            completes — but only when changes vs. the baseline are detected.
     """
     with app.app_context():
         scan = db.session.get(Scan, scan_id)
@@ -119,10 +130,99 @@ def run_scan_background(app, scan_id: int, output_dir: str) -> None:
             db.session.commit()
             logger.info("Scan %d completed for %s", scan_id, scan.target)
 
+            # Webhook notification: only fires for scheduled scans that have a
+            # URL configured, and only when the diff against the baseline is
+            # non-empty.  A clean scan (no changes) sends nothing.
+            if webhook_url:
+                _notify_if_changes(scan, webhook_url)
+
         except (ValueError, RuntimeError) as e:
             scan.status = "failed"
             db.session.commit()
             logger.error("Scan %d failed: %s", scan_id, e)
+
+
+def _notify_if_changes(scan: Scan, webhook_url: str) -> None:
+    """Diff the completed scan against the most recent baseline.
+
+    If any hosts or ports changed, POST a JSON summary to webhook_url.
+    Silently returns if there is no baseline to compare against, or if
+    the diff is empty.
+
+    This is the "decide whether to send" layer — _fire_webhook handles
+    the actual HTTP call.
+    """
+    baseline = (
+        Scan.query.filter_by(target=scan.target, is_baseline=True)
+        .filter(Scan.id != scan.id)
+        .order_by(Scan.started_at.desc())
+        .first()
+    )
+    if baseline is None or not baseline.xml_file_path or not scan.xml_file_path:
+        return
+
+    try:
+        parsed_baseline = parse_nmap_xml(baseline.xml_file_path)
+        parsed_current = parse_nmap_xml(scan.xml_file_path)
+    except Exception as e:
+        logger.warning("Webhook: could not parse scan XML for diff: %s", e)
+        return
+
+    diff = compare_scans(parsed_baseline, parsed_current)
+    n_new = len(diff["new_hosts"])
+    n_removed = len(diff["removed_hosts"])
+    n_changed = len(diff["changed_hosts"])
+
+    if n_new + n_removed + n_changed == 0:
+        return  # Nothing changed — no notification needed
+
+    # Build the payload.
+    #
+    # A webhook payload is just a plain dict that gets serialised to JSON.
+    # Keep it flat and human-readable so the receiver (Slack, a custom
+    # script, whatever) can act on it without any special parsing logic.
+    #
+    # "event" is a string identifier so the receiver can route different
+    # event types if you ever add more (e.g. "scan_failed").
+    payload = {
+        "event": "scan_changes_detected",
+        "scan_id": scan.id,
+        "target": scan.target,
+        "scanned_at": scan.completed_at.isoformat() if scan.completed_at else None,
+        "changes": {
+            "new_hosts": n_new,
+            "removed_hosts": n_removed,
+            "changed_hosts": n_changed,
+        },
+    }
+
+    logger.info(
+        "Scan %d detected changes for %s — firing webhook", scan.id, scan.target
+    )
+    _fire_webhook(webhook_url, payload)
+
+
+def _fire_webhook(url: str, payload: dict) -> None:
+    """POST a JSON payload to url.
+
+    This is the network I/O layer — it knows nothing about scans or diffs,
+    just "send this dict to that URL".
+
+    Key design decisions:
+      - timeout=10  Prevents a slow or dead endpoint from blocking the thread
+                    indefinitely.  10 s is generous for a local/LAN endpoint.
+      - raise_for_status()  Turns 4xx/5xx HTTP responses into exceptions so
+                    they get caught and logged rather than silently swallowed.
+      - bare except  Deliberately catches everything (connection refused,
+                    DNS failure, timeout, bad SSL cert, etc.) so a broken
+                    webhook never prevents a scan result from being saved.
+    """
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+        logger.info("Webhook delivered to %s (HTTP %d)", url, response.status_code)
+    except Exception as e:
+        logger.warning("Webhook delivery to %s failed: %s", url, e)
 
 
 def _store_parsed_results(scan: Scan, parsed: dict) -> None:

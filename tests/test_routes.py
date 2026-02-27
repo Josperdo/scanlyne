@@ -385,6 +385,161 @@ def test_delete_schedule_404(client):
 
 
 # ---------------------------------------------------------------------------
+# Webhook — schedule creation and notification logic
+# ---------------------------------------------------------------------------
+
+def test_create_schedule_with_webhook_url(client, app):
+    """A valid webhook URL is accepted and stored on the schedule."""
+    resp = client.post("/schedules/", data={
+        "target": "10.0.0.1",
+        "flags": "",
+        "interval_minutes": "60",
+        "webhook_url": "https://hooks.example.com/notify",
+    })
+    assert resp.status_code == 302
+    s = Schedule.query.filter_by(target="10.0.0.1").first()
+    assert s.webhook_url == "https://hooks.example.com/notify"
+
+
+def test_create_schedule_empty_webhook_url_stores_none(client, app):
+    """An empty webhook URL field stores None (no notification)."""
+    client.post("/schedules/", data={
+        "target": "10.0.0.1", "flags": "", "interval_minutes": "60", "webhook_url": "",
+    })
+    s = Schedule.query.filter_by(target="10.0.0.1").first()
+    assert s.webhook_url is None
+
+
+def test_create_schedule_invalid_webhook_url_flashes(client):
+    """A URL that doesn't start with http:// or https:// is rejected."""
+    resp = client.post("/schedules/", data={
+        "target": "10.0.0.1", "flags": "", "interval_minutes": "60",
+        "webhook_url": "not-a-url",
+    }, follow_redirects=True)
+    assert b"http" in resp.data  # flash message mentions http/https
+
+
+def test_fire_webhook_posts_json(app):
+    """_fire_webhook makes a POST to the given URL with the payload as JSON."""
+    from blueprints.scan import _fire_webhook
+    with mock.patch("blueprints.scan.requests.post") as mock_post:
+        mock_post.return_value.status_code = 200
+        mock_post.return_value.raise_for_status.return_value = None
+        _fire_webhook("https://example.com/hook", {"event": "test"})
+    mock_post.assert_called_once_with(
+        "https://example.com/hook",
+        json={"event": "test"},
+        timeout=10,
+    )
+
+
+def test_fire_webhook_failure_does_not_raise(app):
+    """A network error or bad response must never propagate — just log and continue."""
+    from blueprints.scan import _fire_webhook
+    with mock.patch("blueprints.scan.requests.post", side_effect=Exception("connection refused")):
+        _fire_webhook("https://dead-endpoint.example.com/hook", {"event": "test"})
+    # If we reach here without an exception, the test passes.
+
+
+def test_notify_fires_when_changes_detected(app, tmp_path):
+    """_notify_if_changes calls _fire_webhook when the diff is non-empty."""
+    # Baseline: one host, one port
+    baseline_xml = tmp_path / "baseline.xml"
+    baseline_xml.write_text(MINIMAL_XML, encoding="utf-8")
+
+    # Current scan: same host plus a new port (Redis on 6379)
+    current_xml = tmp_path / "current.xml"
+    current_xml.write_text("""\
+<?xml version="1.0"?>
+<nmaprun args="nmap -sV 192.168.1.1" startstr="Mon Jan 1 13:00:00 2025">
+  <host>
+    <status state="up"/>
+    <address addr="192.168.1.1" addrtype="ipv4"/>
+    <hostnames><hostname name="router.local" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="22">
+        <state state="open"/>
+        <service name="ssh" product="OpenSSH" version="8.9"/>
+      </port>
+      <port protocol="tcp" portid="6379">
+        <state state="open"/>
+        <service name="redis"/>
+      </port>
+    </ports>
+  </host>
+</nmaprun>
+""", encoding="utf-8")
+
+    with app.app_context():
+        from datetime import timezone
+        from blueprints.scan import _notify_if_changes
+
+        baseline = Scan(
+            target="192.168.1.1", flags="", status="completed",
+            is_baseline=True, xml_file_path=str(baseline_xml),
+        )
+        current = Scan(
+            target="192.168.1.1", flags="", status="completed",
+            is_baseline=False, xml_file_path=str(current_xml),
+            completed_at=__import__("datetime").datetime.now(timezone.utc),
+        )
+        db.session.add_all([baseline, current])
+        db.session.commit()
+
+        with mock.patch("blueprints.scan._fire_webhook") as mock_fire:
+            _notify_if_changes(current, "https://example.com/hook")
+
+    mock_fire.assert_called_once()
+    payload = mock_fire.call_args[0][1]
+    assert payload["event"] == "scan_changes_detected"
+    assert payload["changes"]["changed_hosts"] == 1  # port 6379 added
+
+
+def test_notify_no_baseline_skips(app, tmp_path):
+    """If there is no baseline for the target, the webhook must not fire."""
+    xml = tmp_path / "scan.xml"
+    xml.write_text(MINIMAL_XML, encoding="utf-8")
+
+    with app.app_context():
+        from blueprints.scan import _notify_if_changes
+        scan = Scan(
+            target="192.168.1.99", flags="", status="completed",
+            xml_file_path=str(xml),
+        )
+        db.session.add(scan)
+        db.session.commit()
+
+        with mock.patch("blueprints.scan._fire_webhook") as mock_fire:
+            _notify_if_changes(scan, "https://example.com/hook")
+
+    mock_fire.assert_not_called()
+
+
+def test_notify_no_changes_skips(app, tmp_path):
+    """If the scan matches the baseline exactly, the webhook must not fire."""
+    xml = tmp_path / "scan.xml"
+    xml.write_text(MINIMAL_XML, encoding="utf-8")
+
+    with app.app_context():
+        from blueprints.scan import _notify_if_changes
+        baseline = Scan(
+            target="192.168.1.1", flags="", status="completed",
+            is_baseline=True, xml_file_path=str(xml),
+        )
+        current = Scan(
+            target="192.168.1.1", flags="", status="completed",
+            is_baseline=False, xml_file_path=str(xml),
+        )
+        db.session.add_all([baseline, current])
+        db.session.commit()
+
+        with mock.patch("blueprints.scan._fire_webhook") as mock_fire:
+            _notify_if_changes(current, "https://example.com/hook")
+
+    mock_fire.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
 # Error handlers (Phase 2)
 # ---------------------------------------------------------------------------
 
