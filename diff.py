@@ -1,29 +1,14 @@
 """Compare two parsed nmap scan results and surface security-relevant changes.
 
-Core idea:
-    Given a baseline scan and a current scan for the same target, produce a
-    structured diff that answers: "What changed, and should I care?"
+The comparison works at three levels:
+    1. Host level   — new or disappeared hosts on the network
+    2. Port level   — ports that opened or closed on a known host
+    3. Service level — version or state changes on an existing port
 
-    The comparison works at three levels:
-        1. Host level   — new or disappeared hosts on the network
-        2. Port level   — ports that opened or closed on a known host
-        3. Service level — version or state changes on an existing port
-
-    Each changed item carries a risk_hint: a short, plain-English note that
-    gives the analyst just enough context to triage the change without
-    opening a full threat model. Risk hints are not verdicts — they are
-    starting points for investigation.
-
-Hints for implementation:
-    - Build dicts keyed by host address for O(1) lookups instead of nested loops:
-        {h["address"]: h for h in scan_a.get("hosts", [])}
-    - Python set operations are your friend:
-        set_b - set_a  → items in B but not A (new)
-        set_a - set_b  → items in A but not B (removed)
-        set_a & set_b  → items in both (check for changes)
-    - For port comparison, use (port_number, protocol) as a tuple key
-      so port 80/tcp and 80/udp are treated as different entries
-    - Pass each individual change through _assess_risk() to populate risk_hint
+Each changed item carries a risk_hint: a short, plain-English note that
+gives the analyst just enough context to triage the change without
+opening a full threat model. Risk hints are not verdicts — they are
+starting points for investigation.
 """
 
 from typing import Any
@@ -65,14 +50,16 @@ def compare_scans(scan_a: dict[str, Any], scan_b: dict[str, Any]) -> dict[str, A
         {
             "new_hosts": [
                 {
-                    ...host_dict fields...,
-                    "risk_hint": str,   # why this host appearing might matter
+                    "address": str, "hostname": str, "status": str,
+                    "ports": [...],
+                    "risk_hint": str,
                 }
             ],
             "removed_hosts": [
                 {
-                    ...host_dict fields...,
-                    "risk_hint": str,   # why this host disappearing might matter
+                    "address": str, "hostname": str, "status": str,
+                    "ports": [...],
+                    "risk_hint": str,
                 }
             ],
             "changed_hosts": [
@@ -80,16 +67,12 @@ def compare_scans(scan_a: dict[str, Any], scan_b: dict[str, Any]) -> dict[str, A
                     "address": str,
                     "hostname": str,
                     "new_ports": [
-                        {
-                            ...port_dict fields...,
-                            "risk_hint": str,
-                        }
+                        {"port": int, "protocol": str, "state": str,
+                         "service": str, "version": str, "risk_hint": str}
                     ],
                     "removed_ports": [
-                        {
-                            ...port_dict fields...,
-                            "risk_hint": str,
-                        }
+                        {"port": int, "protocol": str, "state": str,
+                         "service": str, "version": str, "risk_hint": str}
                     ],
                     "changed_services": [
                         {
@@ -105,15 +88,6 @@ def compare_scans(scan_a: dict[str, Any], scan_b: dict[str, Any]) -> dict[str, A
                 }
             ],
         }
-
-    Hints:
-        - Build address-keyed dicts from both scan host lists
-        - Create sets of addresses from each dict's keys
-        - Use set difference to find new and removed hosts
-        - Use set intersection to find hosts in both, then call _compare_host_ports()
-        - Only include a host in changed_hosts if it actually has differences
-          (i.e., at least one of new_ports, removed_ports, or changed_services is non-empty)
-        - Attach a risk_hint to each new/removed host via _assess_risk()
     """
     hosts_a = {h["address"]: h for h in scan_a.get("hosts", [])}
     hosts_b = {h["address"]: h for h in scan_b.get("hosts", [])}
@@ -157,16 +131,6 @@ def _compare_host_ports(host_a: dict, host_b: dict) -> dict[str, Any]:
         Dict with address, hostname, new_ports, removed_ports, changed_services.
         Each entry in new_ports and removed_ports includes a risk_hint field.
         Each entry in changed_services includes a risk_hint field.
-
-    Hints:
-        - Build (port_number, protocol) keyed dicts for both hosts
-        - Use set operations to find new/removed port keys
-        - For ports present in both, compare state and service fields
-          (state change: open→filtered is different from filtered→open)
-        - Build the changed_services list for any port whose state or service differs
-        - For each new port, call _assess_risk({"type": "new_port", "port": port_dict})
-        - For each removed port, call _assess_risk({"type": "removed_port", "port": port_dict})
-        - For each changed service, call _assess_risk({"type": "service_change", ...})
     """
     ports_a = {(p["port"], p["protocol"]): p for p in host_a.get("ports", [])}
     ports_b = {(p["port"], p["protocol"]): p for p in host_b.get("ports", [])}
@@ -229,22 +193,8 @@ def _assess_risk(change: dict[str, Any]) -> str:
              "old_service": str, "new_service": str}
 
     Returns:
-        A non-empty string. If no specific concern is identified, return a
-        neutral note like "No specific concern — verify this change is expected."
-
-    Hints for implementation:
-        - For new_host: any new device on the network is worth noting;
-          check if it has ports in SENSITIVE_PORTS
-        - For removed_host: could be normal (shutdown) or concerning (device pulled);
-          neutral hint is fine unless the host had sensitive ports open
-        - For new_port: check port_dict["port"] against SENSITIVE_PORTS;
-          check if it falls in EPHEMERAL_RANGE; check if state is "open"
-        - For removed_port: a formerly-open port closing is usually good news,
-          but a filtered port may mean a firewall rule changed, not the service stopped
-        - For service_change: a version change (old_service != new_service) on an
-          internet-facing host may indicate an upgrade or a compromise;
-          a state change from closed/filtered to open is higher priority
-        - Return SENSITIVE_PORTS[port_number] as part of the hint when applicable
+        A non-empty string. If no specific concern is identified, returns
+        "No specific concern — verify this change is expected."
     """
     change_type = change.get("type")
 

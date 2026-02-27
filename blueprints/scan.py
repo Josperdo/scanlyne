@@ -1,16 +1,4 @@
-"""Blueprint for scan input and execution.
-
-Flask Blueprint concepts you'll use here:
-    - Blueprint("name", __name__) creates a modular group of routes
-    - @bp.route("/path") decorates a function to handle that URL
-    - request.form.get("field") reads POST form data
-    - flash("message", "category") shows one-time messages to the user
-    - redirect(url_for("blueprint.function")) sends the user to another page
-    - render_template("path.html", var=value) renders a Jinja2 template
-    - current_app.config["KEY"] accesses app configuration
-    - db.session.add(obj) / db.session.commit() persists to the database
-    - db.session.flush() writes to DB without committing (gets auto-generated IDs)
-"""
+"""Blueprint for scan input and execution."""
 
 import logging
 import threading
@@ -35,15 +23,7 @@ def index():
 
 @bp.route("/scan", methods=["POST"])
 def start_scan():
-    """Validate inputs, kick off a background scan, and redirect to the detail page.
-
-    Flow:
-        1. Read target and flags from the submitted form
-        2. Validate both (redirect back with flash message if invalid)
-        3. Create a Scan record in the DB with status="running"
-        4. Launch run_scan_background() in a daemon thread
-        5. Redirect immediately to the scan detail page (which polls for status)
-    """
+    """Validate inputs, kick off a background scan, and redirect to the detail page."""
     target = request.form.get("target", "").strip()
     flags = request.form.get("flags", "").strip()
 
@@ -93,12 +73,6 @@ def set_baseline(scan_id: int):
 
     Multiple baselines per target are allowed. An optional label can be
     provided to distinguish them (e.g. "pre-patch", "post-change").
-
-    Flow:
-        1. Look up the scan by scan_id (404 if not found)
-        2. Verify scan.status == "completed" (flash error and redirect if not)
-        3. Set scan.is_baseline = True and apply the optional label
-        4. Commit, flash a success message, redirect to the scan's detail page
     """
     scan = db.session.get(Scan, scan_id)
     if scan is None:
@@ -157,17 +131,6 @@ def _store_parsed_results(scan: Scan, parsed: dict) -> None:
     Args:
         scan: The Scan model instance to associate results with.
         parsed: Output from parse_nmap_xml().
-
-    Hints:
-        - Loop over parsed["hosts"] to create Host records
-        - For each host, loop over its "ports" to create Port records
-        - Use db.session.flush() after adding a Host to get its id
-          before creating Port records that reference host.id
-        - Map the parsed dict keys to the model field names:
-            parsed "address" → Host.address
-            parsed "port" → Port.port_number
-            parsed "service" → Port.service_name
-            parsed "version" → Port.service_version
     """
     for host_data in parsed.get("hosts", []):
         host = Host(

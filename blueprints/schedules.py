@@ -28,15 +28,7 @@ def new_schedule():
 
 @bp.route("/", methods=["POST"])
 def create_schedule():
-    """Validate and persist a new recurring schedule.
-
-    Flow:
-        1. Read target, flags, and interval_minutes from the form
-        2. Validate target and flags using the same validators as scan.py
-        3. Validate interval_minutes is a positive integer
-        4. Create and commit the Schedule record
-        5. Redirect to the schedule list
-    """
+    """Validate and persist a new recurring schedule."""
     target = request.form.get("target", "").strip()
     flags = request.form.get("flags", "").strip()
     interval_raw = request.form.get("interval_minutes", "").strip()

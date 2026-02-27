@@ -1,27 +1,9 @@
 """Blueprint for change detection — the primary view of Scanlyne.
 
-The central workflow:
-    1. A user marks a completed scan as the "baseline" for a given target.
-    2. They run a new scan against the same target.
-    3. They land here to see what changed — new hosts, disappeared hosts,
-       opened/closed ports — each annotated with a triage hint.
-
-Two comparison modes are supported:
-    - Baseline vs. latest: fast path; the app auto-selects the saved baseline
+Two comparison modes:
+    - Baseline vs. latest: fast path; the app auto-selects a saved baseline
       and the most recent completed scan for the same target.
     - Manual: user picks any two completed scans from dropdowns.
-
-Hints:
-    - The select page shows a form with two dropdowns of completed scans
-    - The POST handler reads scan_a and scan_b IDs from the form
-    - You need to validate: both selected, not the same, both exist, both have XML
-    - Use parse_nmap_xml() on each scan's xml_file_path, then compare_scans()
-    - Pass scan_a, scan_b, and the diff dict to the template
-    - For the baseline-vs-latest shortcut, query:
-        baseline  = Scan.query.filter_by(target=target, is_baseline=True).first()
-        latest    = Scan.query.filter_by(target=target, status="completed")
-                        .order_by(Scan.started_at.desc()).first()
-      Then verify baseline != latest before running the diff
 """
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
@@ -37,18 +19,8 @@ bp = Blueprint("compare", __name__, url_prefix="/compare")
 def select():
     """Render the change-detection landing page.
 
-    Shows:
-        - A "baseline vs. latest" quick-compare section, grouped by target,
-          for any target that has both a saved baseline and a newer completed scan.
-        - A manual comparison form with two dropdowns for full control.
-
-    Hints:
-        - Query all completed scans: Scan.query.filter_by(status="completed")...
-        - To build the quick-compare list, group completed scans by target,
-          then for each target check whether is_baseline=True exists
-          and whether a more-recent non-baseline scan also exists
-        - Pass both `scans` (for the manual form) and `quick_pairs`
-          (list of {baseline, latest} dicts) to the template
+    Shows a "baseline vs. latest" quick-compare section (grouped by target)
+    and a manual comparison form with two dropdowns.
     """
     scans = Scan.query.filter_by(status="completed").order_by(Scan.started_at.desc()).all()
 
@@ -90,8 +62,12 @@ def run_diff():
         flash("Select two different scans to compare.", "error")
         return redirect(url_for("compare.select"))
 
-    scan_a = db.session.get(Scan, int(scan_a_id))
-    scan_b = db.session.get(Scan, int(scan_b_id))
+    try:
+        scan_a = db.session.get(Scan, int(scan_a_id))
+        scan_b = db.session.get(Scan, int(scan_b_id))
+    except ValueError:
+        flash("Invalid scan selection.", "error")
+        return redirect(url_for("compare.select"))
 
     if scan_a is None or scan_b is None:
         flash("One or both selected scans could not be found.", "error")
@@ -119,13 +95,6 @@ def baseline_vs_latest():
     Reads a baseline_id from the form (supplied by the quick-compare table),
     then auto-selects the most recent non-baseline completed scan for the same
     target and runs the diff directly.
-
-    Flow:
-        1. Read "baseline_id" from request.form
-        2. Load the baseline scan (404 if not found)
-        3. Find the most recent completed scan for the same target (excluding the baseline)
-        4. Parse both XML files and run compare_scans()
-        5. Render "compare/diff.html" with the result
     """
     baseline_id = request.form.get("baseline_id", "").strip()
 
@@ -133,7 +102,11 @@ def baseline_vs_latest():
         flash("No baseline specified.", "error")
         return redirect(url_for("compare.select"))
 
-    baseline = db.session.get(Scan, int(baseline_id))
+    try:
+        baseline = db.session.get(Scan, int(baseline_id))
+    except ValueError:
+        flash("Invalid baseline selection.", "error")
+        return redirect(url_for("compare.select"))
     if baseline is None or not baseline.is_baseline:
         flash("Baseline scan not found.", "error")
         return redirect(url_for("compare.select"))

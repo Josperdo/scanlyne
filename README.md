@@ -82,21 +82,23 @@ Redis wasn't there before. A package update pulled it in as a dependency and it 
 
 ```
 scanlyne/
-├── app.py              # Flask application factory
+├── app.py              # Flask application factory, auth, scheduler startup
 ├── config.py           # Configuration (SECRET_KEY, DB path, scan output dir)
-├── models.py           # SQLAlchemy models: Scan, Host, Port
+├── models.py           # SQLAlchemy models: Scan, Host, Port, Schedule
 ├── scanner.py          # nmap subprocess execution with input validation
 ├── parser.py           # nmap XML → Python dict
 ├── diff.py             # Scan comparison + risk hint generation
 ├── blueprints/
 │   ├── scan.py         # Run scans, manage baselines
 │   ├── results.py      # Scan history and detail views
-│   └── compare.py      # Change detection — the primary view
+│   ├── compare.py      # Change detection — the primary view
+│   └── schedules.py    # Recurring scan schedule CRUD
 ├── templates/
 │   ├── base.html
 │   ├── scan/
 │   ├── results/
-│   └── compare/
+│   ├── compare/
+│   └── schedules/
 └── static/
     ├── css/style.css
     └── js/main.js
@@ -104,7 +106,7 @@ scanlyne/
 
 **Data persistence:** SQLite via Flask-SQLAlchemy. No external database required. Scan results live in `instance/scanner.db`. Raw nmap XML is stored in `scans/` and referenced by path in the database.
 
-**Dependencies:** Flask, Flask-SQLAlchemy, gunicorn. No message queues, no background workers, no external services.
+**Dependencies:** Flask, Flask-SQLAlchemy, APScheduler, gunicorn. No message queues, no external services. APScheduler runs inside the Flask process for scheduled scans.
 
 ---
 
@@ -123,13 +125,22 @@ python app.py
 
 Open `http://localhost:5000`. The database and scan output directory are created automatically on first run.
 
-For production:
+For production (single worker required for the background scheduler):
 
 ```bash
-gunicorn "app:create_app()"
+gunicorn --workers 1 "app:create_app()"
 ```
 
 Set `SECRET_KEY` via environment variable before deploying.
+
+To enable HTTP Basic Auth, set both variables before starting the app:
+
+```bash
+export SCANLYNE_USERNAME=admin
+export SCANLYNE_PASSWORD=yourpassword
+```
+
+When unset, the app is open — rely on network-level access control (firewall, VPN).
 
 ---
 
@@ -139,11 +150,12 @@ Set `SECRET_KEY` via environment variable before deploying.
 Run Scan → mark as baseline → Run Scan → Change Detection → review diff
 ```
 
-1. **Run Scan** — enter a target and flags (e.g. `-sV -T4`). Results are stored automatically.
-2. **Mark as baseline** — on the scan detail page, promote a completed scan to baseline status. Only one baseline per target is active at a time.
+1. **Run Scan** — enter a target and flags (e.g. `-sV -T4`). Scans run asynchronously; the detail page polls for completion.
+2. **Mark as baseline** — on the scan detail page, promote a completed scan to baseline status. Add an optional label (e.g. "pre-patch", "post-change"). Multiple baselines per target are supported.
 3. **Run another scan** — same target, same or different flags.
-4. **Change Detection** — the app surfaces the baseline-vs-latest pair automatically. One click to see the diff.
+4. **Change Detection** — the app surfaces all baseline-vs-latest pairs automatically. One click to see the diff.
 5. **Manual comparison** — compare any two completed scans, not just baseline pairs.
+6. **Schedules** — configure recurring scans at `/schedules`. The app fires them in the background on the configured interval.
 
 ---
 
@@ -154,28 +166,12 @@ Scanlyne executes nmap as a subprocess. Several controls are in place to prevent
 - **Target validation** — regex allowlist blocks shell metacharacters (`; | & $ >` etc.)
 - **Flag allowlist** — only a fixed set of nmap flags are permitted (no `--script`, no `--lua`)
 - **No `shell=True`** — subprocess is always called with an argument list
-- **No authentication** — Scanlyne is designed for trusted local/LAN use. Do not expose it to the public internet.
+- **Optional HTTP Basic Auth** — set `SCANLYNE_USERNAME` and `SCANLYNE_PASSWORD` environment variables to enable. Off by default; designed for trusted LAN use. Do not expose to the public internet without enabling auth and putting it behind HTTPS.
 
 ---
 
 ## Known limitations
 
-- Scans run synchronously. Long scans (large CIDRs, slow targets) will block the request until nmap finishes.
-- No user authentication. Access control is your network's job.
-- One baseline per target. More granular baseline management is not implemented.
-- No scheduled scanning. Scans are triggered manually.
-
----
-
-## Implementation status
-
-| Component | Status | Notes |
-|---|---|---|
-| `scanner.py` | Complete | nmap execution with input validation |
-| `models.py` | Complete | Scan, Host, Port + baseline fields |
-| `parser.py` | Stub | nmap XML → dict |
-| `diff.py` | Stub | Comparison + risk hint generation |
-| `blueprints/results.py` | Stub | Scan history and detail routes |
-| `blueprints/scan.py` | Stub | Scan form, execution, baseline management |
-| `blueprints/compare.py` | Stub | Change detection routes |
-| `static/js/main.js` | Stub | Client-side form validation |
+- **Scheduler requires a single worker.** If you run gunicorn with multiple workers, each worker starts its own scheduler and will fire duplicate scans. Use `--workers 1`.
+- **No HTTPS.** Run behind a reverse proxy (nginx, Caddy) if you expose this beyond localhost.
+- **SQLite only.** Fine for homelab scale; not suitable for high-concurrency multi-user deployments.

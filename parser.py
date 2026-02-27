@@ -16,13 +16,6 @@ Nmap XML structure reference:
             </ports>
         </host>
     </nmaprun>
-
-Hints:
-    - ET.parse() returns a tree, .getroot() gives you the root <nmaprun> element
-    - .find("tagname") returns the first matching child (or None)
-    - .findall("tagname") returns a list of all matching children
-    - .get("attr", "default") reads an XML attribute safely
-    - Break it into helper functions: one per level (scan info, host, port)
 """
 
 import os
