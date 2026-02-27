@@ -144,6 +144,33 @@ When unset, the app is open — rely on network-level access control (firewall, 
 
 ---
 
+## Docker
+
+The easiest way to run Scanlyne. nmap is included in the image.
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:5000`. The database and scan output are stored in named Docker volumes and survive container restarts.
+
+**Environment variables** can be set directly in `docker-compose.yml` or passed on the command line:
+
+```bash
+SECRET_KEY=mysecret SCANLYNE_USERNAME=admin SCANLYNE_PASSWORD=pass docker compose up
+```
+
+**Scanning your LAN** — by default the container runs on Docker's bridge network. To reach LAN hosts from a Linux host, switch to host networking in `docker-compose.yml`:
+
+```yaml
+# Replace the ports: mapping with:
+network_mode: host
+```
+
+This is not supported on Docker Desktop for Mac or Windows — use the host's IP range as the scan target instead.
+
+---
+
 ## Workflow
 
 ```

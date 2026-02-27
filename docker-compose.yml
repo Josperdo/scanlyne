@@ -1,0 +1,31 @@
+services:
+  scanlyne:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      # Named volumes keep the database and scan XML files across container restarts.
+      - scanlyne_db:/app/instance
+      - scanlyne_scans:/app/scans
+    environment:
+      # Generate a real secret key for any non-local deployment:
+      #   python -c "import secrets; print(secrets.token_hex(32))"
+      SECRET_KEY: change-me-in-production
+
+      # Uncomment to enable HTTP Basic Auth:
+      # SCANLYNE_USERNAME: admin
+      # SCANLYNE_PASSWORD: yourpassword
+
+    # NET_RAW + NET_ADMIN let nmap run privileged scans (-sS, -O) as a
+    # non-root user. Remove these if you only run -sT (TCP connect) scans.
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+
+    # For scanning hosts on your LAN from Linux, replace the port mapping above
+    # with host networking (not supported on Docker Desktop for Mac/Windows):
+    # network_mode: host
+
+volumes:
+  scanlyne_db:
+  scanlyne_scans:
