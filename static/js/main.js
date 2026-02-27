@@ -156,3 +156,40 @@ document.addEventListener('DOMContentLoaded', function () {
     initCompareForm();
     initFlashDismiss();
 });
+
+// -- Scan status polling -------------------------------------------------------
+// Polls the scan status endpoint every 2 seconds when a scan is "running" and
+// reloads the page once it completes or fails.
+
+function initScanPolling() {
+    var statusEl = document.getElementById('scan-status');
+    if (!statusEl || statusEl.dataset.status !== 'running') {
+        return;
+    }
+
+    var scanId = statusEl.dataset.scanId;
+    var intervalId = setInterval(function () {
+        fetch('/scan/' + scanId + '/status')
+            .then(function (res) {
+                if (!res.ok) {
+                    clearInterval(intervalId);
+                    return null;
+                }
+                return res.json();
+            })
+            .then(function (data) {
+                if (!data) { return; }
+                if (data.status !== 'running') {
+                    clearInterval(intervalId);
+                    location.reload();
+                }
+            })
+            .catch(function () {
+                clearInterval(intervalId);
+            });
+    }, 2000);
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    initScanPolling();
+});

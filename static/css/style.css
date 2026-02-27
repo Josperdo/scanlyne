@@ -459,3 +459,40 @@ code {
         padding: 0.4rem 0.5rem;
     }
 }
+
+/* === Baseline label form (inline in scan detail) === */
+.baseline-form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+}
+
+.baseline-label-input {
+    padding: 0.3rem 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    width: 220px;
+}
+
+/* === Scan polling note === */
+.scan-polling-note {
+    color: #004085;
+    background: #cce5ff;
+    border: 1px solid #b8daff;
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+}
+
+/* === Danger button === */
+.btn-danger {
+    background: #dc3545;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}

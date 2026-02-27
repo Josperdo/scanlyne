@@ -13,9 +13,10 @@ Flask Blueprint concepts you'll use here:
 """
 
 import logging
+import threading
 from datetime import datetime, timezone
 
-from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, jsonify, redirect, render_template, request, url_for
 
 from models import Host, Port, Scan, db
 from parser import parse_nmap_xml
@@ -34,16 +35,14 @@ def index():
 
 @bp.route("/scan", methods=["POST"])
 def start_scan():
-    """Validate inputs, run an nmap scan, and store results.
+    """Validate inputs, kick off a background scan, and redirect to the detail page.
 
     Flow:
         1. Read target and flags from the submitted form
         2. Validate both (redirect back with flash message if invalid)
         3. Create a Scan record in the DB with status="running"
-        4. Call run_scan() to execute nmap
-        5. On success: parse XML, store hosts/ports, update status to "completed"
-        6. On failure: update status to "failed", flash the error
-        7. Redirect to the appropriate page
+        4. Launch run_scan_background() in a daemon thread
+        5. Redirect immediately to the scan detail page (which polls for status)
     """
     target = request.form.get("target", "").strip()
     flags = request.form.get("flags", "").strip()
@@ -65,42 +64,41 @@ def start_scan():
     db.session.add(scan)
     db.session.commit()
 
-    try:
-        xml_path = run_scan(target, flags, current_app.config["SCAN_OUTPUT_DIR"])
-        parsed = parse_nmap_xml(xml_path)
+    app = current_app._get_current_object()
+    output_dir = app.config["SCAN_OUTPUT_DIR"]
 
-        scan.xml_file_path = xml_path
-        scan.completed_at = datetime.now(timezone.utc)
-        scan.status = "completed"
+    thread = threading.Thread(
+        target=run_scan_background,
+        args=(app, scan.id, output_dir),
+        daemon=True,
+    )
+    thread.start()
 
-        _store_parsed_results(scan, parsed)
-        db.session.commit()
+    logger.info("Scan %d queued for target %s", scan.id, target)
+    return redirect(url_for("results.detail", scan_id=scan.id))
 
-        logger.info("Scan %d completed for target %s", scan.id, target)
-        return redirect(url_for("results.detail", scan_id=scan.id))
 
-    except (ValueError, RuntimeError) as e:
-        scan.status = "failed"
-        db.session.commit()
-        flash(f"Scan failed: {e}", "error")
-        logger.error("Scan %d failed: %s", scan.id, e)
-        return redirect(url_for("scan.index"))
+@bp.route("/scan/<int:scan_id>/status")
+def scan_status(scan_id: int):
+    """Return the current status of a scan as JSON (used by the polling UI)."""
+    scan = db.session.get(Scan, scan_id)
+    if scan is None:
+        return jsonify({"status": "not_found"}), 404
+    return jsonify({"status": scan.status, "scan_id": scan.id})
 
 
 @bp.route("/scan/<int:scan_id>/set-baseline", methods=["POST"])
 def set_baseline(scan_id: int):
-    """Mark a completed scan as the baseline for its target.
+    """Mark a completed scan as a named baseline for its target.
 
-    Promotes this scan to baseline status and clears the baseline flag from
-    any previously-baselined scan for the same target. Only completed scans
-    should be eligible.
+    Multiple baselines per target are allowed. An optional label can be
+    provided to distinguish them (e.g. "pre-patch", "post-change").
 
     Flow:
         1. Look up the scan by scan_id (404 if not found)
         2. Verify scan.status == "completed" (flash error and redirect if not)
-        3. Clear is_baseline on any existing baseline for the same target
-        4. Set scan.is_baseline = True
-        5. Commit, flash a success message, redirect to the scan's detail page
+        3. Set scan.is_baseline = True and apply the optional label
+        4. Commit, flash a success message, redirect to the scan's detail page
     """
     scan = db.session.get(Scan, scan_id)
     if scan is None:
@@ -110,14 +108,47 @@ def set_baseline(scan_id: int):
         flash("Only completed scans can be set as a baseline.", "error")
         return redirect(url_for("results.detail", scan_id=scan_id))
 
-    for existing in Scan.query.filter_by(target=scan.target, is_baseline=True).all():
-        existing.is_baseline = False
-
+    label = request.form.get("label", "").strip() or None
     scan.is_baseline = True
+    scan.label = label
     db.session.commit()
 
-    flash(f"Scan #{scan.id} is now the baseline for {scan.target}.", "success")
+    label_str = f' "{label}"' if label else ""
+    flash(f"Scan #{scan.id} is now a baseline{label_str} for {scan.target}.", "success")
     return redirect(url_for("results.detail", scan_id=scan.id))
+
+
+def run_scan_background(app, scan_id: int, output_dir: str) -> None:
+    """Execute a scan in a background thread and persist the results.
+
+    Must be called in a daemon thread. Creates its own application context so
+    it can safely use the database outside of a request.
+
+    Args:
+        app: The Flask application instance (not the proxy).
+        scan_id: ID of the Scan record already created with status="running".
+        output_dir: Directory to write nmap XML output.
+    """
+    with app.app_context():
+        scan = db.session.get(Scan, scan_id)
+        if scan is None:
+            return
+        try:
+            xml_path = run_scan(scan.target, scan.flags, output_dir)
+            parsed = parse_nmap_xml(xml_path)
+
+            scan.xml_file_path = xml_path
+            scan.completed_at = datetime.now(timezone.utc)
+            scan.status = "completed"
+
+            _store_parsed_results(scan, parsed)
+            db.session.commit()
+            logger.info("Scan %d completed for %s", scan_id, scan.target)
+
+        except (ValueError, RuntimeError) as e:
+            scan.status = "failed"
+            db.session.commit()
+            logger.error("Scan %d failed: %s", scan_id, e)
 
 
 def _store_parsed_results(scan: Scan, parsed: dict) -> None:

@@ -9,17 +9,32 @@
     <p><strong>Target:</strong> {{ scan.target }}</p>
     <p><strong>Flags:</strong> <code>{{ scan.flags or "none" }}</code></p>
     <p><strong>Status:</strong>
-        <span class="status status-{{ scan.status }}">{{ scan.status }}</span>
+        <span id="scan-status"
+              class="status status-{{ scan.status }}"
+              data-status="{{ scan.status }}"
+              data-scan-id="{{ scan.id }}">{{ scan.status }}</span>
     </p>
+    {% if scan.status == "running" %}
+    <p class="scan-polling-note">Scan in progress — this page will refresh automatically.</p>
+    {% endif %}
     <p><strong>Started:</strong> {{ scan.started_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
     {% if scan.completed_at %}
     <p><strong>Completed:</strong> {{ scan.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
     {% endif %}
     <p><strong>Baseline:</strong>
         {% if scan.is_baseline %}
-        <span class="badge badge-neutral">Active baseline</span>
+        <span class="badge badge-neutral">
+            Active baseline{% if scan.label %}: {{ scan.label }}{% endif %}
+        </span>
         {% elif scan.status == "completed" %}
-        <form action="{{ url_for('scan.set_baseline', scan_id=scan.id) }}" method="POST" style="display:inline">
+        <form action="{{ url_for('scan.set_baseline', scan_id=scan.id) }}" method="POST" class="baseline-form">
+            <input
+                type="text"
+                name="label"
+                placeholder="Label (optional, e.g. post-patch)"
+                maxlength="100"
+                class="baseline-label-input"
+            >
             <button type="submit" class="btn btn-small">Set as baseline</button>
         </form>
         {% else %}
@@ -65,6 +80,8 @@
 </div>
 {% endfor %}
 
+{% elif scan.status == "running" %}
+<p class="empty-state">Results will appear here once the scan completes.</p>
 {% else %}
 <p class="empty-state">No hosts discovered in this scan.</p>
 {% endif %}

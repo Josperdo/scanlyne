@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from flask_sqlalchemy import SQLAlchemy
 
@@ -71,3 +71,32 @@ class Port(db.Model):
 
     def __repr__(self) -> str:
         return f"<Port {self.port_number}/{self.protocol} state={self.state}>"
+
+
+class Schedule(db.Model):
+    """A recurring scan schedule.
+
+    When enabled, the scheduler will run a scan against the configured target
+    every interval_minutes minutes. next_run_at is updated after each execution.
+    """
+
+    __tablename__ = "schedules"
+
+    id = db.Column(db.Integer, primary_key=True)
+    target = db.Column(db.String(255), nullable=False)
+    flags = db.Column(db.String(500), nullable=False, default="")
+    interval_minutes = db.Column(db.Integer, nullable=False, default=60)
+    enabled = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(
+        db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    last_run_at = db.Column(db.DateTime, nullable=True)
+    next_run_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),  # run at next scheduler tick
+    )
+
+    def __repr__(self) -> str:
+        status = "enabled" if self.enabled else "disabled"
+        return f"<Schedule {self.id} target={self.target} every={self.interval_minutes}m {status}>"

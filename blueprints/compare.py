@@ -58,13 +58,13 @@ def select():
 
     quick_pairs = []
     for target_scans in by_target.values():
-        baseline = next((s for s in target_scans if s.is_baseline), None)
-        if baseline is None:
+        baselines = [s for s in target_scans if s.is_baseline]
+        non_baselines = [s for s in target_scans if not s.is_baseline]
+        if not baselines or not non_baselines:
             continue
-        latest = next((s for s in target_scans if not s.is_baseline), None)
-        if latest is None:
-            continue
-        quick_pairs.append({"baseline": baseline, "latest": latest})
+        latest = non_baselines[0]  # list is already ordered newest-first
+        for baseline in baselines:
+            quick_pairs.append({"baseline": baseline, "latest": latest})
 
     return render_template("compare/select.html", scans=scans, quick_pairs=quick_pairs)
 
@@ -114,47 +114,41 @@ def run_diff():
 
 @bp.route("/baseline-vs-latest", methods=["POST"])
 def baseline_vs_latest():
-    """Fast-path comparison: saved baseline vs. most recent completed scan.
+    """Fast-path comparison: a specific baseline vs. the most recent completed scan.
 
-    Reads a target from the form, looks up its baseline and newest scan,
-    and runs the diff directly — no dropdown selection needed.
+    Reads a baseline_id from the form (supplied by the quick-compare table),
+    then auto-selects the most recent non-baseline completed scan for the same
+    target and runs the diff directly.
 
     Flow:
-        1. Read "target" from request.form
-        2. Find the baseline scan for that target (is_baseline=True)
-        3. Find the most recent completed scan for that target
-           (order by started_at DESC, exclude the baseline itself)
-        4. Validate both exist and are different
-        5. Parse both XML files and run compare_scans()
-        6. Render "compare/diff.html" with the result
-
-    Hints:
-        - baseline = Scan.query.filter_by(target=target, is_baseline=True).first()
-        - latest   = Scan.query.filter_by(target=target, status="completed")
-                         .filter(Scan.id != baseline.id)
-                         .order_by(Scan.started_at.desc()).first()
-        - Flash a clear message if no baseline is set for this target
-        - Flash a clear message if there's no newer scan to compare against
+        1. Read "baseline_id" from request.form
+        2. Load the baseline scan (404 if not found)
+        3. Find the most recent completed scan for the same target (excluding the baseline)
+        4. Parse both XML files and run compare_scans()
+        5. Render "compare/diff.html" with the result
     """
-    target = request.form.get("target", "").strip()
+    baseline_id = request.form.get("baseline_id", "").strip()
 
-    if not target:
-        flash("No target specified.", "error")
+    if not baseline_id:
+        flash("No baseline specified.", "error")
         return redirect(url_for("compare.select"))
 
-    baseline = Scan.query.filter_by(target=target, is_baseline=True).first()
-    if baseline is None:
-        flash(f"No baseline set for {target}. Open a completed scan and set it as baseline first.", "error")
+    baseline = db.session.get(Scan, int(baseline_id))
+    if baseline is None or not baseline.is_baseline:
+        flash("Baseline scan not found.", "error")
         return redirect(url_for("compare.select"))
 
     latest = (
-        Scan.query.filter_by(target=target, status="completed")
+        Scan.query.filter_by(target=baseline.target, status="completed")
         .filter(Scan.id != baseline.id)
         .order_by(Scan.started_at.desc())
         .first()
     )
     if latest is None:
-        flash(f"No newer completed scan found for {target} to compare against the baseline.", "error")
+        flash(
+            f"No newer completed scan found for {baseline.target} to compare against this baseline.",
+            "error",
+        )
         return redirect(url_for("compare.select"))
 
     try:

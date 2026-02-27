@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}New Schedule - Scanlyne{% endblock %}
+
+{% block content %}
+<h1>New Schedule</h1>
+<p class="page-subtitle">Set up a recurring nmap scan. Scans run in the background at the specified interval.</p>
+
+<form action="{{ url_for('schedules.create_schedule') }}" method="POST">
+    <div class="form-group">
+        <label for="target">Target</label>
+        <input
+            type="text"
+            id="target"
+            name="target"
+            placeholder="e.g. 192.168.1.0/24 or scanme.nmap.org"
+            required
+        >
+        <small>IP address, CIDR range, or hostname</small>
+    </div>
+
+    <div class="form-group">
+        <label for="flags">Flags</label>
+        <input
+            type="text"
+            id="flags"
+            name="flags"
+            placeholder="e.g. -sV -T3"
+        >
+        <small>Optional nmap flags (same allowlist as manual scans)</small>
+    </div>
+
+    <div class="form-group">
+        <label for="interval_minutes">Interval (minutes)</label>
+        <input
+            type="number"
+            id="interval_minutes"
+            name="interval_minutes"
+            value="60"
+            min="1"
+            required
+        >
+        <small>How often to run this scan. Minimum: 1 minute.</small>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Create Schedule</button>
+    <a href="{{ url_for('schedules.list_schedules') }}" class="btn btn-small" style="margin-left:0.5rem;">Cancel</a>
+</form>
+{% endblock %}

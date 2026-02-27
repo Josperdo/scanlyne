@@ -6,7 +6,7 @@
 <h1>Change Detection</h1>
 <p class="page-subtitle">Compare a saved baseline against a newer scan to see what changed on your network.</p>
 
-{# ── Fast path: baseline vs. latest ─────────────────────────────────────── #}
+{# Fast path: baseline vs. latest #}
 {% if quick_pairs %}
 <section class="section-block">
     <h2>Baseline vs. Latest</h2>
@@ -37,7 +37,7 @@
                 </td>
                 <td>
                     <form action="{{ url_for('compare.baseline_vs_latest') }}" method="POST">
-                        <input type="hidden" name="target" value="{{ pair.baseline.target }}">
+                        <input type="hidden" name="baseline_id" value="{{ pair.baseline.id }}">
                         <button type="submit" class="btn btn-primary">Compare</button>
                     </form>
                 </td>
@@ -48,11 +48,11 @@
 </section>
 {% endif %}
 
-{# ── Manual comparison ───────────────────────────────────────────────────── #}
+{# Manual comparison #}
 <section class="section-block">
     <h2>Manual Comparison</h2>
     {% if scans | length >= 2 %}
-    <p>Pick any two completed scans to diff — useful when you want to compare non-adjacent snapshots.</p>
+    <p>Pick any two completed scans to diff.</p>
     <form id="compare-form" action="{{ url_for('compare.run_diff') }}" method="POST">
         <div class="compare-selectors">
             <div class="form-group">
@@ -61,7 +61,7 @@
                     <option value="">Select a scan...</option>
                     {% for scan in scans %}
                     <option value="{{ scan.id }}">
-                        #{{ scan.id }}{% if scan.is_baseline %} [baseline]{% endif %} — {{ scan.target }} ({{ scan.started_at.strftime('%Y-%m-%d %H:%M') }})
+                        #{{ scan.id }}{% if scan.is_baseline %} [baseline{% if scan.label %}: {{ scan.label }}{% endif %}]{% endif %} -- {{ scan.target }} ({{ scan.started_at.strftime('%Y-%m-%d %H:%M') }})
                     </option>
                     {% endfor %}
                 </select>
@@ -73,7 +73,7 @@
                     <option value="">Select a scan...</option>
                     {% for scan in scans %}
                     <option value="{{ scan.id }}">
-                        #{{ scan.id }}{% if scan.is_baseline %} [baseline]{% endif %} — {{ scan.target }} ({{ scan.started_at.strftime('%Y-%m-%d %H:%M') }})
+                        #{{ scan.id }}{% if scan.is_baseline %} [baseline{% if scan.label %}: {{ scan.label }}{% endif %}]{% endif %} -- {{ scan.target }} ({{ scan.started_at.strftime('%Y-%m-%d %H:%M') }})
                     </option>
                     {% endfor %}
                 </select>

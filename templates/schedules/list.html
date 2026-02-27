@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Schedules - Scanlyne{% endblock %}
+
+{% block content %}
+<h1>Schedules</h1>
+<p class="page-subtitle">Recurring scans run automatically in the background. Requires single-worker mode.</p>
+
+<a href="{{ url_for('schedules.new_schedule') }}" class="btn btn-primary" style="margin-bottom:1.5rem;display:inline-block;">New Schedule</a>
+
+{% if schedules %}
+<table class="scan-table">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Target</th>
+            <th>Flags</th>
+            <th>Interval</th>
+            <th>Status</th>
+            <th>Last Run</th>
+            <th>Next Run</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in schedules %}
+        <tr>
+            <td>{{ s.id }}</td>
+            <td>{{ s.target }}</td>
+            <td><code>{{ s.flags or "--" }}</code></td>
+            <td>{{ s.interval_minutes }} min</td>
+            <td>
+                {% if s.enabled %}
+                <span class="status status-completed">enabled</span>
+                {% else %}
+                <span class="status status-failed">disabled</span>
+                {% endif %}
+            </td>
+            <td>{{ s.last_run_at.strftime('%Y-%m-%d %H:%M') if s.last_run_at else "--" }}</td>
+            <td>{{ s.next_run_at.strftime('%Y-%m-%d %H:%M') if s.next_run_at else "--" }}</td>
+            <td>
+                <form action="{{ url_for('schedules.toggle_schedule', schedule_id=s.id) }}" method="POST" style="display:inline">
+                    <button type="submit" class="btn btn-small">{{ "Disable" if s.enabled else "Enable" }}</button>
+                </form>
+                <form action="{{ url_for('schedules.delete_schedule', schedule_id=s.id) }}" method="POST" style="display:inline">
+                    <button type="submit" class="btn btn-small btn-danger" onclick="return confirm('Delete schedule #{{ s.id }}?')">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="empty-state">No schedules configured. <a href="{{ url_for('schedules.new_schedule') }}">Create one</a> to start automatic scanning.</p>
+{% endif %}
+{% endblock %}
