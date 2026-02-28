@@ -78,8 +78,7 @@ Redis wasn't there before. A package update pulled it in as a dependency and it 
 
 The Change Detection view surfaces all baseline pairs automatically — one click to see the full diff:
 
-<img width="1079" height="770" alt="Scanlyne-change-detection" src="https://github.com/user-attachments/assets/398acc16-28ad-443c-95ff-a728f10ed48f" />
-
+<img width="1077" height="570" alt="Scanlyne-change-detection" src="https://github.com/user-attachments/assets/d2f2a02e-77d2-4eb9-888d-081dce0b6f6f" />
 
 ---
 
