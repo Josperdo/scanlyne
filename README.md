@@ -76,7 +76,7 @@ Changed hosts
 
 Redis wasn't there before. A package update pulled it in as a dependency and it bound to all interfaces. Worth knowing.
 
-<img width="1077" height="615" alt="Scanlyne-scan-page" src="https://github.com/user-attachments/assets/47187b05-75c3-40bd-8749-5f813fa26f1b" />
+<img width="1079" height="770" alt="Scanlyne-change-detection" src="https://github.com/user-attachments/assets/398acc16-28ad-443c-95ff-a728f10ed48f" />
 
 
 ---
