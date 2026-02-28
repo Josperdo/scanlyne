@@ -76,6 +76,8 @@ Changed hosts
 
 Redis wasn't there before. A package update pulled it in as a dependency and it bound to all interfaces. Worth knowing.
 
+The Change Detection view surfaces all baseline pairs automatically — one click to see the full diff:
+
 <img width="1079" height="770" alt="Scanlyne-change-detection" src="https://github.com/user-attachments/assets/398acc16-28ad-443c-95ff-a728f10ed48f" />
 
 
