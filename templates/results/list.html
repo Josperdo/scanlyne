@@ -37,6 +37,10 @@
     </tbody>
 </table>
 {% else %}
-<p class="empty-state">No scans yet. <a href="{{ url_for('scan.index') }}">Run your first scan</a>.</p>
+<div class="empty-state">
+    <p class="empty-state-title">No scans yet</p>
+    <p class="empty-state-body">Run your first scan to start building history.</p>
+    <a href="{{ url_for('scan.index') }}" class="btn btn-primary">Run a Scan</a>
+</div>
 {% endif %}
 {% endblock %}

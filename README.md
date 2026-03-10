@@ -4,6 +4,70 @@ Network change detection with security context. Scanlyne runs nmap scans, stores
 
 ---
 
+## Quick Start
+
+### Docker (recommended)
+
+nmap is included in the image. No local dependencies required.
+
+```bash
+git clone https://github.com/your-username/scanlyne.git
+cd scanlyne
+docker compose up --build
+```
+
+Open `http://localhost:5000`. The database and scan output are stored in named Docker volumes and survive container restarts.
+
+**Auth (optional):** when unset the app is open — suitable for trusted LAN use only.
+
+```bash
+SECRET_KEY=mysecret SCANLYNE_USERNAME=admin SCANLYNE_PASSWORD=pass docker compose up
+```
+
+Or set them directly in `docker-compose.yml`.
+
+**Scanning your LAN:** by default the container runs on Docker's bridge network. To reach LAN hosts from a Linux host, switch to host networking in `docker-compose.yml`:
+
+```yaml
+# Replace the ports: mapping with:
+network_mode: host
+```
+
+Not supported on Docker Desktop for Mac or Windows — use the host's IP range as the scan target instead.
+
+> **Note (Windows/Mac):** if the build fails with DNS errors during `apt-get`, check that no VPN is active. Docker Desktop can lose DNS resolution through some VPN clients.
+
+### Manual setup
+
+**Requirements:** Python 3.10+, nmap installed and in PATH.
+
+```bash
+git clone https://github.com/your-username/scanlyne.git
+cd scanlyne
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+flask --app app:create_app run  # dev server, auto-reloads
+```
+
+Open `http://localhost:5000`. The database and scan output directory are created automatically on first run.
+
+For production (single worker required for the background scheduler):
+
+```bash
+gunicorn --workers 1 "app:create_app()"
+```
+
+Set `SECRET_KEY` via environment variable before deploying:
+
+```bash
+export SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+export SCANLYNE_USERNAME=admin
+export SCANLYNE_PASSWORD=yourpassword
+```
+
+---
+
 ## The gap this fills
 
 Most network monitoring tools are either too much or too little:
@@ -82,6 +146,21 @@ The Change Detection view surfaces all baseline pairs automatically — one clic
 
 ---
 
+## Workflow
+
+```
+Run Scan → mark as baseline → Run Scan → Change Detection → review diff
+```
+
+1. **Run Scan** — enter a target and flags (e.g. `-sV -T4`). Scans run asynchronously; the detail page polls for completion.
+2. **Mark as baseline** — on the scan detail page, promote a completed scan to baseline status. Add an optional label (e.g. "pre-patch", "post-change"). Multiple baselines per target are supported.
+3. **Run another scan** — same target, same or different flags.
+4. **Change Detection** — the app surfaces all baseline-vs-latest pairs automatically. One click to see the diff.
+5. **Manual comparison** — compare any two completed scans, not just baseline pairs.
+6. **Schedules** — configure recurring scans at `/schedules`. The app fires them in the background on the configured interval.
+
+---
+
 ## Architecture
 
 ```
@@ -111,82 +190,6 @@ scanlyne/
 **Data persistence:** SQLite via Flask-SQLAlchemy. No external database required. Scan results live in `instance/scanner.db`. Raw nmap XML is stored in `scans/` and referenced by path in the database.
 
 **Dependencies:** Flask, Flask-SQLAlchemy, APScheduler, gunicorn. No message queues, no external services. APScheduler runs inside the Flask process for scheduled scans.
-
----
-
-## Setup
-
-**Requirements:** Python 3.8+, nmap installed and in PATH.
-
-```bash
-git clone <repo-url>
-cd scanlyne
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-python app.py
-```
-
-Open `http://localhost:5000`. The database and scan output directory are created automatically on first run.
-
-For production (single worker required for the background scheduler):
-
-```bash
-gunicorn --workers 1 "app:create_app()"
-```
-
-Set `SECRET_KEY` via environment variable before deploying.
-
-To enable HTTP Basic Auth, set both variables before starting the app:
-
-```bash
-export SCANLYNE_USERNAME=admin
-export SCANLYNE_PASSWORD=yourpassword
-```
-
-When unset, the app is open — rely on network-level access control (firewall, VPN).
-
----
-
-## Docker
-
-The easiest way to run Scanlyne. nmap is included in the image.
-
-```bash
-docker compose up --build
-```
-
-Open `http://localhost:5000`. The database and scan output are stored in named Docker volumes and survive container restarts.
-
-**Environment variables** can be set directly in `docker-compose.yml` or passed on the command line:
-
-```bash
-SECRET_KEY=mysecret SCANLYNE_USERNAME=admin SCANLYNE_PASSWORD=pass docker compose up
-```
-
-**Scanning your LAN** — by default the container runs on Docker's bridge network. To reach LAN hosts from a Linux host, switch to host networking in `docker-compose.yml`:
-
-```yaml
-# Replace the ports: mapping with:
-network_mode: host
-```
-
-This is not supported on Docker Desktop for Mac or Windows — use the host's IP range as the scan target instead.
-
----
-
-## Workflow
-
-```
-Run Scan → mark as baseline → Run Scan → Change Detection → review diff
-```
-
-1. **Run Scan** — enter a target and flags (e.g. `-sV -T4`). Scans run asynchronously; the detail page polls for completion.
-2. **Mark as baseline** — on the scan detail page, promote a completed scan to baseline status. Add an optional label (e.g. "pre-patch", "post-change"). Multiple baselines per target are supported.
-3. **Run another scan** — same target, same or different flags.
-4. **Change Detection** — the app surfaces all baseline-vs-latest pairs automatically. One click to see the diff.
-5. **Manual comparison** — compare any two completed scans, not just baseline pairs.
-6. **Schedules** — configure recurring scans at `/schedules`. The app fires them in the background on the configured interval.
 
 ---
 

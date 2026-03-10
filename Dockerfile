@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 
 # nmap is a system binary — install before copying app code so this
 # layer is cached across code-only rebuilds.

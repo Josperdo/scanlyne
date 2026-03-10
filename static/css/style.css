@@ -1,3 +1,20 @@
+/* === Design Tokens === */
+:root {
+    --bg:             #0d0f1a;
+    --surface:        #131528;
+    --surface-raised: #191c35;
+    --surface-hover:  #1e2240;
+    --border:         #232645;
+    --border-subtle:  #1c1f3a;
+    --text:           #dde1f5;
+    --text-muted:     #7a7fa8;
+    --accent:         #4cc9f0;
+    --accent-blue:    #5a76f5;
+    --accent-blue-hover: #4a63e0;
+    --danger:         #e05c6a;
+    --danger-hover:   #c94d5a;
+}
+
 /* === Reset & Base === */
 *,
 *::before,
@@ -10,48 +27,66 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     line-height: 1.6;
-    color: #1a1a2e;
-    background: #f0f0f5;
+    color: var(--text);
+    background: var(--bg);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
 }
 
+h1, h2, h3, h4 {
+    color: var(--text);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+h1 { font-size: 1.6rem; margin-bottom: 1.25rem; }
+
+/* === Page Header Accent === */
+.container > h1 {
+    border-left: 3px solid var(--accent-blue);
+    padding-left: 0.75rem;
+}
+h2 { font-size: 1.2rem; }
+h3 { font-size: 1.05rem; }
+
 /* === Navigation === */
 .navbar {
-    background: #1a1a2e;
-    color: #e0e0e0;
-    padding: 0.75rem 1.5rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1.75rem;
     display: flex;
     align-items: center;
     gap: 2rem;
 }
 
 .nav-brand {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     font-weight: 700;
-    color: #4cc9f0;
+    color: var(--accent);
+    letter-spacing: 0.03em;
 }
 
 .nav-links {
     list-style: none;
     display: flex;
-    gap: 1.25rem;
+    gap: 1.5rem;
 }
 
 .nav-links a {
-    color: #c0c0d0;
+    color: var(--text-muted);
     text-decoration: none;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
+    transition: color 0.15s;
 }
 
 .nav-links a:hover {
-    color: #4cc9f0;
+    color: var(--text);
 }
 
 /* === Layout === */
 .container {
-    max-width: 960px;
+    max-width: 980px;
     margin: 2rem auto;
     padding: 0 1.5rem;
     flex: 1;
@@ -63,22 +98,23 @@ body {
 }
 
 .flash {
-    padding: 0.75rem 1rem;
-    border-radius: 4px;
+    padding: 0.7rem 1rem;
+    border-radius: 6px;
     margin-bottom: 0.5rem;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
+    border: 1px solid transparent;
 }
 
 .flash-success {
-    background: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
+    background: #0d2218;
+    color: #6ee7b7;
+    border-color: #1a4a30;
 }
 
 .flash-error {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
+    background: #2a0e14;
+    color: #fca5a5;
+    border-color: #5a1c24;
 }
 
 /* === Forms === */
@@ -89,204 +125,249 @@ body {
 .form-group label {
     display: block;
     font-weight: 600;
-    margin-bottom: 0.35rem;
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+    color: var(--text);
 }
 
 .form-group input,
 .form-group select {
     width: 100%;
-    padding: 0.6rem 0.75rem;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 1rem;
+    padding: 0.6rem 0.8rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    color: var(--text);
+    transition: border-color 0.15s;
+}
+
+.form-group input::placeholder {
+    color: var(--text-muted);
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+.form-group select option {
+    background: var(--surface-raised);
+    color: var(--text);
 }
 
 .form-group small {
     display: block;
-    color: #666;
-    margin-top: 0.25rem;
-    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+    font-size: 0.82rem;
 }
 
 /* === Buttons === */
 .btn {
     display: inline-block;
-    padding: 0.6rem 1.25rem;
+    padding: 0.55rem 1.2rem;
     border: none;
-    border-radius: 4px;
-    font-size: 0.95rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
     cursor: pointer;
     text-decoration: none;
     color: #fff;
+    transition: background 0.15s;
 }
 
 .btn-primary {
-    background: #4361ee;
+    background: var(--accent-blue);
 }
 
 .btn-primary:hover {
-    background: #3a56d4;
+    background: var(--accent-blue-hover);
 }
 
 .btn-small {
-    padding: 0.3rem 0.75rem;
-    font-size: 0.85rem;
-    background: #4361ee;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.82rem;
+    background: var(--accent-blue);
+}
+
+.btn-small:hover {
+    background: var(--accent-blue-hover);
+}
+
+.btn-danger {
+    background: var(--danger);
+}
+
+.btn-danger:hover {
+    background: var(--danger-hover);
 }
 
 /* === Tables === */
 .scan-table,
-.port-table {
+.port-table,
+.table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 1.5rem;
-    background: #fff;
-    border-radius: 4px;
+    background: var(--surface);
+    border-radius: 8px;
     overflow: hidden;
+    border: 1px solid var(--border);
 }
 
 .scan-table th,
-.port-table th {
-    background: #1a1a2e;
-    color: #e0e0e0;
+.port-table th,
+.table th {
+    background: var(--surface-raised);
+    color: var(--text-muted);
     text-align: left;
-    padding: 0.6rem 0.75rem;
-    font-size: 0.9rem;
-}
-
-.scan-table td,
-.port-table td {
-    padding: 0.55rem 0.75rem;
-    border-bottom: 1px solid #e8e8e8;
-    font-size: 0.9rem;
-}
-
-.scan-table tbody tr:hover,
-.port-table tbody tr:hover {
-    background: #f5f5fa;
-}
-
-/* === Status Badges === */
-.status {
-    display: inline-block;
-    padding: 0.15rem 0.5rem;
-    border-radius: 3px;
+    padding: 0.65rem 0.9rem;
     font-size: 0.8rem;
     font-weight: 600;
     text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+}
+
+.scan-table td,
+.port-table td,
+.table td {
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 0.9rem;
+    color: var(--text);
+}
+
+.scan-table tbody tr:last-child td,
+.port-table tbody tr:last-child td,
+.table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.scan-table tbody tr:hover,
+.port-table tbody tr:hover,
+.table tbody tr:hover {
+    background: var(--surface-hover);
+}
+
+/* === Status Badges === */
+.status,
+.state {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .status-completed,
 .status-up,
 .state-open {
-    background: #d4edda;
-    color: #155724;
+    background: #0d2a1a;
+    color: #6ee7b7;
+    border: 1px solid #1a5a30;
 }
 
 .status-running {
-    background: #cce5ff;
-    color: #004085;
+    background: #0a1e3a;
+    color: #93c5fd;
+    border: 1px solid #1a3a6a;
 }
 
 .status-failed,
 .status-down {
-    background: #f8d7da;
-    color: #721c24;
+    background: #2a0e14;
+    color: #fca5a5;
+    border: 1px solid #5a1c24;
 }
 
 .status-pending {
-    background: #fff3cd;
-    color: #856404;
+    background: #2a1e00;
+    color: #fcd34d;
+    border: 1px solid #5a3c00;
 }
 
 .state-closed {
-    background: #f8d7da;
-    color: #721c24;
+    background: #2a0e14;
+    color: #fca5a5;
+    border: 1px solid #5a1c24;
 }
 
 .state-filtered {
-    background: #fff3cd;
-    color: #856404;
+    background: #2a1e00;
+    color: #fcd34d;
+    border: 1px solid #5a3c00;
 }
 
 /* === Host Cards === */
 .host-card {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 1rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.1rem 1.25rem;
     margin-bottom: 1rem;
 }
 
 .host-card h3 {
-    margin-bottom: 0.5rem;
-    font-size: 1.1rem;
+    margin-bottom: 0.4rem;
+    font-size: 1rem;
+    color: var(--accent);
+}
+
+.host-status {
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
 }
 
 /* === Scan Metadata === */
 .scan-meta {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 1rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.1rem 1.25rem;
     margin-bottom: 1.5rem;
 }
 
 .scan-meta p {
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.92rem;
 }
 
 /* === Diff Styling === */
 .diff-header {
     display: flex;
-    gap: 1.5rem;
+    gap: 1rem;
     margin-bottom: 1.5rem;
     flex-wrap: wrap;
 }
 
 .diff-scan {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem 1.1rem;
     flex: 1;
     min-width: 250px;
+    font-size: 0.9rem;
 }
 
-.diff-added {
-    color: #155724;
-}
+.diff-added   { color: #6ee7b7; }
+.diff-removed { color: #fca5a5; }
+.diff-changed { color: #fcd34d; }
 
-.diff-removed {
-    color: #721c24;
-}
+.diff-card-added   { border-left: 3px solid #22c55e; }
+.diff-card-removed { border-left: 3px solid #ef4444; }
 
-.diff-changed {
-    color: #856404;
-}
-
-.diff-card-added {
-    border-left: 4px solid #28a745;
-}
-
-.diff-card-removed {
-    border-left: 4px solid #dc3545;
-}
-
-.row-added {
-    background: #d4edda;
-}
-
-.row-removed {
-    background: #f8d7da;
-}
-
-.row-changed {
-    background: #fff3cd;
-}
+.row-added   { background: #0a1f12; }
+.row-removed { background: #1f0a0d; }
+.row-changed { background: #1f1500; }
 
 .diff-section {
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem;
 }
 
 /* === Compare Selectors === */
@@ -304,38 +385,50 @@ body {
 /* === Empty State === */
 .empty-state {
     text-align: center;
-    color: #666;
-    padding: 2rem;
-    font-size: 1.05rem;
+    padding: 3rem 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
 }
 
-.empty-state a {
-    color: #4361ee;
+.empty-state-title {
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+}
+
+.empty-state-body {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
 }
 
 /* === Footer === */
 .footer {
     text-align: center;
     padding: 1rem;
-    color: #888;
-    font-size: 0.85rem;
-    border-top: 1px solid #ddd;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    border-top: 1px solid var(--border);
     margin-top: auto;
 }
 
 /* === Code === */
 code {
-    background: #e8e8f0;
-    padding: 0.1rem 0.35rem;
-    border-radius: 3px;
-    font-size: 0.9em;
+    background: var(--surface-raised);
+    color: var(--accent);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.88em;
+    border: 1px solid var(--border);
 }
 
 /* === Page Subtitle === */
 .page-subtitle {
-    color: #555;
+    color: var(--text-muted);
     margin-bottom: 1.5rem;
-    font-size: 1rem;
+    font-size: 0.95rem;
 }
 
 /* === Section Block === */
@@ -343,80 +436,89 @@ code {
     margin-bottom: 2.5rem;
 }
 
-.section-block h2 {
-    margin-bottom: 0.5rem;
-}
-
 .section-block > p {
-    color: #555;
+    color: var(--text-muted);
     margin-bottom: 1rem;
-}
-
-/* === Generic Table (used in compare/select) === */
-.table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 1.5rem;
-    background: #fff;
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.table th {
-    background: #1a1a2e;
-    color: #e0e0e0;
-    text-align: left;
-    padding: 0.6rem 0.75rem;
     font-size: 0.9rem;
-}
-
-.table td {
-    padding: 0.55rem 0.75rem;
-    border-bottom: 1px solid #e8e8e8;
-    font-size: 0.9rem;
-}
-
-.table tbody tr:hover {
-    background: #f5f5fa;
 }
 
 /* === Badges === */
 .badge {
     display: inline-block;
     padding: 0.15rem 0.5rem;
-    border-radius: 3px;
-    font-size: 0.8rem;
+    border-radius: 4px;
+    font-size: 0.78rem;
     font-weight: 600;
 }
 
 .badge-neutral {
-    background: #e8e8f0;
-    color: #444;
+    background: var(--surface-raised);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
 }
 
 /* === Form Error === */
 .form-error {
     display: block;
-    color: #721c24;
-    font-size: 0.85rem;
+    color: #fca5a5;
+    font-size: 0.83rem;
     margin-top: 0.25rem;
 }
 
 /* === Risk Hint === */
 .risk-hint {
     font-size: 0.85rem;
-    color: #444;
-    background: #eef0fb;
-    border-left: 3px solid #4361ee;
-    padding: 0.35rem 0.65rem;
+    color: #93c5fd;
+    background: #0a1e3a;
+    border-left: 3px solid var(--accent-blue);
+    padding: 0.4rem 0.7rem;
     margin-top: 0.5rem;
-    border-radius: 0 3px 3px 0;
+    border-radius: 0 4px 4px 0;
 }
 
 .risk-hint-cell {
     font-size: 0.82rem;
-    color: #444;
+    color: var(--text-muted);
     max-width: 280px;
+}
+
+/* === Baseline form === */
+.baseline-form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.25rem;
+}
+
+.baseline-label-input {
+    padding: 0.3rem 0.6rem;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--text);
+    width: 220px;
+}
+
+.baseline-label-input::placeholder {
+    color: var(--text-muted);
+}
+
+.baseline-label-input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+/* === Scan polling note === */
+.scan-polling-note {
+    color: #93c5fd;
+    background: #0a1e3a;
+    border: 1px solid #1a3a6a;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.88rem;
+    margin-top: 0.25rem;
 }
 
 /* === Responsive === */
@@ -456,43 +558,6 @@ code {
     .scan-table td,
     .port-table td,
     .table td {
-        padding: 0.4rem 0.5rem;
+        padding: 0.4rem 0.55rem;
     }
-}
-
-/* === Baseline label form (inline in scan detail) === */
-.baseline-form {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-top: 0.25rem;
-}
-
-.baseline-label-input {
-    padding: 0.3rem 0.6rem;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    width: 220px;
-}
-
-/* === Scan polling note === */
-.scan-polling-note {
-    color: #004085;
-    background: #cce5ff;
-    border: 1px solid #b8daff;
-    border-radius: 4px;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.9rem;
-    margin-top: 0.25rem;
-}
-
-/* === Danger button === */
-.btn-danger {
-    background: #dc3545;
-}
-
-.btn-danger:hover {
-    background: #c82333;
 }

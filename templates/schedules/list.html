@@ -6,9 +6,8 @@
 <h1>Schedules</h1>
 <p class="page-subtitle">Recurring scans run automatically in the background. Requires single-worker mode.</p>
 
-<a href="{{ url_for('schedules.new_schedule') }}" class="btn btn-primary" style="margin-bottom:1.5rem;display:inline-block;">New Schedule</a>
-
 {% if schedules %}
+<a href="{{ url_for('schedules.new_schedule') }}" class="btn btn-primary" style="margin-bottom:1.5rem;display:inline-block;">New Schedule</a>
 <table class="scan-table">
     <thead>
         <tr>
@@ -59,6 +58,10 @@
     </tbody>
 </table>
 {% else %}
-<p class="empty-state">No schedules configured. <a href="{{ url_for('schedules.new_schedule') }}">Create one</a> to start automatic scanning.</p>
+<div class="empty-state">
+    <p class="empty-state-title">No schedules configured</p>
+    <p class="empty-state-body">Create a recurring scan to automatically monitor your network.</p>
+    <a href="{{ url_for('schedules.new_schedule') }}" class="btn btn-primary">New Schedule</a>
+</div>
 {% endif %}
 {% endblock %}
