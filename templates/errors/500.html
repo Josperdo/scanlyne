@@ -1,10 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Server Error - Scanlyne{% endblock %}
+{% block title %}Server Error — Scanlyne{% endblock %}
 
 {% block content %}
-<h1>500 — Server Error</h1>
-<p class="empty-state">
-    Something went wrong. Check the application logs for details.
-</p>
+<div class="empty-state" style="padding: 4rem 2rem;">
+    <div class="error-code">500</div>
+    <p class="empty-state-title">Server error</p>
+    <p class="empty-state-body">Something went wrong. Check the application logs for details.</p>
+    <a href="{{ url_for('scan.index') }}" class="btn btn-secondary btn-sm">Go home</a>
+</div>
 {% endblock %}

@@ -1,29 +1,37 @@
 {% extends "base.html" %}
 
-{% block title %}Scan #{{ scan.id }} - Scanlyne{% endblock %}
+{% block title %}Scan #{{ scan.id }} — Scanlyne{% endblock %}
 
 {% block content %}
-<h1>Scan #{{ scan.id }}</h1>
+<h1>Scan <span style="font-family: var(--font-mono); color: var(--accent);">#{{ scan.id }}</span></h1>
 
 <div class="scan-meta">
-    <p><strong>Target:</strong> {{ scan.target }}</p>
-    <p><strong>Flags:</strong> <code>{{ scan.flags or "none" }}</code></p>
-    <p><strong>Status:</strong>
+    <p><strong style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600;">Target</strong><br>
+        <code>{{ scan.target }}</code>
+    </p>
+    <p><strong style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600;">Flags</strong><br>
+        <code>{{ scan.flags or "none" }}</code>
+    </p>
+    <p><strong style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600;">Status</strong><br>
         <span id="scan-status"
               class="status status-{{ scan.status }}"
               data-status="{{ scan.status }}"
               data-scan-id="{{ scan.id }}">{{ scan.status }}</span>
+        {% if scan.status == "running" %}
+        <span class="scan-polling-note" style="margin-left: 0.5rem;">Scan in progress — refreshing automatically</span>
+        {% endif %}
     </p>
-    {% if scan.status == "running" %}
-    <p class="scan-polling-note">Scan in progress — this page will refresh automatically.</p>
-    {% endif %}
-    <p><strong>Started:</strong> {{ scan.started_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+    <p><strong style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600;">Started</strong><br>
+        <span style="color: var(--text-secondary); font-size: 0.85rem;">{{ scan.started_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+    </p>
     {% if scan.completed_at %}
-    <p><strong>Completed:</strong> {{ scan.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+    <p><strong style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600;">Completed</strong><br>
+        <span style="color: var(--text-secondary); font-size: 0.85rem;">{{ scan.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+    </p>
     {% endif %}
-    <p><strong>Baseline:</strong>
+    <p><strong style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600;">Baseline</strong><br>
         {% if scan.is_baseline %}
-        <span class="badge badge-neutral">
+        <span class="badge badge-baseline">
             Active baseline{% if scan.label %}: {{ scan.label }}{% endif %}
         </span>
         {% elif scan.status == "completed" %}
@@ -35,54 +43,68 @@
                 maxlength="100"
                 class="baseline-label-input"
             >
-            <button type="submit" class="btn btn-small">Set as baseline</button>
+            <button type="submit" class="btn btn-secondary btn-sm">Set as baseline</button>
         </form>
         {% else %}
-        —
+        <span style="color: var(--text-muted);">—</span>
         {% endif %}
     </p>
 </div>
 
 {% if scan.hosts %}
-<h2>Hosts ({{ scan.hosts | length }})</h2>
+<h2>
+    Hosts
+    <span style="color: var(--text-muted); font-weight: 400; font-size: 0.85rem; margin-left: 0.3rem;">
+        ({{ scan.hosts | length }})
+    </span>
+</h2>
 
 {% for host in scan.hosts %}
 <div class="host-card">
-    <h3>{{ host.address }}{% if host.hostname %} ({{ host.hostname }}){% endif %}</h3>
-    <p class="host-status">Status: <span class="status status-{{ host.status }}">{{ host.status }}</span></p>
+    <div class="host-card-header">
+        <div>
+            <span class="host-address">{{ host.address }}</span>
+            {% if host.hostname %}
+            <span class="host-hostname">({{ host.hostname }})</span>
+            {% endif %}
+        </div>
+        <span class="status status-{{ host.status }}">{{ host.status }}</span>
+    </div>
 
     {% if host.ports %}
-    <table class="port-table">
-        <thead>
-            <tr>
-                <th>Port</th>
-                <th>Protocol</th>
-                <th>State</th>
-                <th>Service</th>
-                <th>Version</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for port in host.ports %}
-            <tr>
-                <td>{{ port.port_number }}</td>
-                <td>{{ port.protocol }}</td>
-                <td><span class="state state-{{ port.state }}">{{ port.state }}</span></td>
-                <td>{{ port.service_name or "—" }}</td>
-                <td>{{ port.service_version or "—" }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="table-wrapper" style="margin-bottom: 0;">
+        <table class="port-table">
+            <thead>
+                <tr>
+                    <th>Port</th>
+                    <th>Protocol</th>
+                    <th>State</th>
+                    <th>Service</th>
+                    <th>Version</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for port in host.ports %}
+                <tr>
+                    <td class="flags-cell">{{ port.port_number }}</td>
+                    <td style="color: var(--text-secondary);">{{ port.protocol }}</td>
+                    <td><span class="state state-{{ port.state }}">{{ port.state }}</span></td>
+                    <td>{{ port.service_name or "—" }}</td>
+                    <td style="color: var(--text-secondary); font-size: 0.8rem;">{{ port.service_version or "—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
-    <p>No ports found for this host.</p>
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">No ports found for this host.</p>
     {% endif %}
 </div>
 {% endfor %}
 
 {% elif scan.status == "running" %}
-<p class="empty-state">Results will appear here once the scan completes.</p>
+<div class="empty-state">Results will appear here once the scan completes.</div>
 {% else %}
-<p class="empty-state">No hosts discovered in this scan.</p>
+<div class="empty-state">No hosts discovered in this scan.</div>
 {% endif %}
 {% endblock %}

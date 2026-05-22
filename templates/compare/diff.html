@@ -1,126 +1,217 @@
 {% extends "base.html" %}
 
-{% block title %}Scan Diff - Scanlyne{% endblock %}
+{% block title %}Scan Diff — Scanlyne{% endblock %}
 
 {% block content %}
 <h1>Scan Comparison</h1>
 
+{# ── Scan pair header ── #}
 <div class="diff-header">
     <div class="diff-scan">
-        <strong>Baseline:</strong> Scan #{{ scan_a.id }} — {{ scan_a.target }}
-        ({{ scan_a.started_at.strftime('%Y-%m-%d %H:%M') }})
+        <strong>Baseline</strong>
+        <div class="diff-scan-target">{{ scan_a.target }}</div>
+        <div class="diff-scan-meta">Scan #{{ scan_a.id }} &nbsp;·&nbsp; {{ scan_a.started_at.strftime('%Y-%m-%d %H:%M') }}</div>
     </div>
     <div class="diff-scan">
-        <strong>Current:</strong> Scan #{{ scan_b.id }} — {{ scan_b.target }}
-        ({{ scan_b.started_at.strftime('%Y-%m-%d %H:%M') }})
+        <strong>Current</strong>
+        <div class="diff-scan-target">{{ scan_b.target }}</div>
+        <div class="diff-scan-meta">Scan #{{ scan_b.id }} &nbsp;·&nbsp; {{ scan_b.started_at.strftime('%Y-%m-%d %H:%M') }}</div>
     </div>
 </div>
 
+{# ── Summary banner ── #}
+<div class="diff-summary">
+    <div class="diff-summary-item added">
+        <span class="diff-count">{{ diff.new_hosts | length }}</span>
+        <span>new host{{ 's' if diff.new_hosts | length != 1 else '' }}</span>
+    </div>
+    <div class="diff-summary-item removed">
+        <span class="diff-count">{{ diff.removed_hosts | length }}</span>
+        <span>removed host{{ 's' if diff.removed_hosts | length != 1 else '' }}</span>
+    </div>
+    <div class="diff-summary-item changed">
+        <span class="diff-count">{{ diff.changed_hosts | length }}</span>
+        <span>changed host{{ 's' if diff.changed_hosts | length != 1 else '' }}</span>
+    </div>
+</div>
+
+{# ── New hosts ── #}
 {% if diff.new_hosts %}
 <section class="diff-section">
-    <h2 class="diff-added">New Hosts ({{ diff.new_hosts | length }})</h2>
+    <div class="diff-section-header added">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+            <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M6.5 3.5v6M3.5 6.5h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        New Hosts ({{ diff.new_hosts | length }})
+    </div>
+
     {% for host in diff.new_hosts %}
     <div class="host-card diff-card-added">
-        <h3>{{ host.address }}{% if host.hostname %} ({{ host.hostname }}){% endif %}</h3>
-        {% if host.risk_hint %}<p class="risk-hint">{{ host.risk_hint }}</p>{% endif %}
+        <div class="host-card-header">
+            <span class="host-address">
+                {{ host.address }}
+                {% if host.hostname %}
+                <span class="host-hostname">({{ host.hostname }})</span>
+                {% endif %}
+            </span>
+        </div>
+        {% if host.risk_hint %}
+        <div class="risk-hint">{{ host.risk_hint }}</div>
+        {% endif %}
         {% if host.ports %}
-        <ul>
-            {% for port in host.ports %}
-            <li>{{ port.port }}/{{ port.protocol }} — {{ port.state }} — {{ port.service or "unknown" }}</li>
-            {% endfor %}
-        </ul>
+        <div class="table-wrapper" style="margin-top: 0.75rem; margin-bottom: 0;">
+            <table class="port-table">
+                <thead>
+                    <tr><th>Port</th><th>Protocol</th><th>State</th><th>Service</th></tr>
+                </thead>
+                <tbody>
+                    {% for port in host.ports %}
+                    <tr>
+                        <td class="flags-cell">{{ port.port }}</td>
+                        <td style="color: var(--text-secondary);">{{ port.protocol }}</td>
+                        <td><span class="state state-{{ port.state }}">{{ port.state }}</span></td>
+                        <td>{{ port.service or "—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% endif %}
     </div>
     {% endfor %}
 </section>
 {% endif %}
 
+{# ── Removed hosts ── #}
 {% if diff.removed_hosts %}
 <section class="diff-section">
-    <h2 class="diff-removed">Removed Hosts ({{ diff.removed_hosts | length }})</h2>
+    <div class="diff-section-header removed">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+            <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M3.5 6.5h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        Removed Hosts ({{ diff.removed_hosts | length }})
+    </div>
+
     {% for host in diff.removed_hosts %}
     <div class="host-card diff-card-removed">
-        <h3>{{ host.address }}{% if host.hostname %} ({{ host.hostname }}){% endif %}</h3>
-        {% if host.risk_hint %}<p class="risk-hint">{{ host.risk_hint }}</p>{% endif %}
+        <div class="host-card-header">
+            <span class="host-address">
+                {{ host.address }}
+                {% if host.hostname %}
+                <span class="host-hostname">({{ host.hostname }})</span>
+                {% endif %}
+            </span>
+        </div>
+        {% if host.risk_hint %}
+        <div class="risk-hint">{{ host.risk_hint }}</div>
+        {% endif %}
     </div>
     {% endfor %}
 </section>
 {% endif %}
 
+{# ── Changed hosts ── #}
 {% if diff.changed_hosts %}
 <section class="diff-section">
-    <h2>Changed Hosts ({{ diff.changed_hosts | length }})</h2>
+    <div class="diff-section-header changed">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+            <path d="M1.5 6.5h10M8.5 3.5l3 3-3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Changed Hosts ({{ diff.changed_hosts | length }})
+    </div>
+
     {% for host in diff.changed_hosts %}
-    <div class="host-card">
-        <h3>{{ host.address }}{% if host.hostname %} ({{ host.hostname }}){% endif %}</h3>
+    <div class="host-card diff-card-changed">
+        <div class="host-card-header">
+            <span class="host-address">
+                {{ host.address }}
+                {% if host.hostname %}
+                <span class="host-hostname">({{ host.hostname }})</span>
+                {% endif %}
+            </span>
+        </div>
 
         {% if host.new_ports %}
-        <h4 class="diff-added">New Ports</h4>
-        <table class="port-table">
-            <thead>
-                <tr><th>Port</th><th>Protocol</th><th>State</th><th>Service</th><th>Risk</th></tr>
-            </thead>
-            <tbody>
-                {% for port in host.new_ports %}
-                <tr class="row-added">
-                    <td>{{ port.port }}</td>
-                    <td>{{ port.protocol }}</td>
-                    <td>{{ port.state }}</td>
-                    <td>{{ port.service or "—" }}</td>
-                    <td class="risk-hint-cell">{{ port.risk_hint }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="diff-sub-header added">New Ports</div>
+        <div class="table-wrapper" style="margin-bottom: 0.75rem;">
+            <table class="port-table">
+                <thead>
+                    <tr><th>Port</th><th>Protocol</th><th>State</th><th>Service</th><th>Risk</th></tr>
+                </thead>
+                <tbody>
+                    {% for port in host.new_ports %}
+                    <tr class="row-added">
+                        <td class="flags-cell">{{ port.port }}</td>
+                        <td style="color: var(--text-secondary);">{{ port.protocol }}</td>
+                        <td><span class="state state-{{ port.state }}">{{ port.state }}</span></td>
+                        <td>{{ port.service or "—" }}</td>
+                        <td class="risk-hint-cell">{{ port.risk_hint }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% endif %}
 
         {% if host.removed_ports %}
-        <h4 class="diff-removed">Closed/Removed Ports</h4>
-        <table class="port-table">
-            <thead>
-                <tr><th>Port</th><th>Protocol</th><th>State</th><th>Service</th><th>Risk</th></tr>
-            </thead>
-            <tbody>
-                {% for port in host.removed_ports %}
-                <tr class="row-removed">
-                    <td>{{ port.port }}</td>
-                    <td>{{ port.protocol }}</td>
-                    <td>{{ port.state }}</td>
-                    <td>{{ port.service or "—" }}</td>
-                    <td class="risk-hint-cell">{{ port.risk_hint }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="diff-sub-header removed">Closed / Removed Ports</div>
+        <div class="table-wrapper" style="margin-bottom: 0.75rem;">
+            <table class="port-table">
+                <thead>
+                    <tr><th>Port</th><th>Protocol</th><th>State</th><th>Service</th><th>Risk</th></tr>
+                </thead>
+                <tbody>
+                    {% for port in host.removed_ports %}
+                    <tr class="row-removed">
+                        <td class="flags-cell">{{ port.port }}</td>
+                        <td style="color: var(--text-secondary);">{{ port.protocol }}</td>
+                        <td><span class="state state-{{ port.state }}">{{ port.state }}</span></td>
+                        <td>{{ port.service or "—" }}</td>
+                        <td class="risk-hint-cell">{{ port.risk_hint }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% endif %}
 
         {% if host.changed_services %}
-        <h4 class="diff-changed">Service Changes</h4>
-        <table class="port-table">
-            <thead>
-                <tr><th>Port</th><th>Protocol</th><th>Old State</th><th>New State</th><th>Old Service</th><th>New Service</th><th>Risk</th></tr>
-            </thead>
-            <tbody>
-                {% for change in host.changed_services %}
-                <tr class="row-changed">
-                    <td>{{ change.port }}</td>
-                    <td>{{ change.protocol }}</td>
-                    <td>{{ change.old_state }}</td>
-                    <td>{{ change.new_state }}</td>
-                    <td>{{ change.old_service or "—" }}</td>
-                    <td>{{ change.new_service or "—" }}</td>
-                    <td class="risk-hint-cell">{{ change.risk_hint }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="diff-sub-header changed">Service Changes</div>
+        <div class="table-wrapper" style="margin-bottom: 0;">
+            <table class="port-table">
+                <thead>
+                    <tr><th>Port</th><th>Protocol</th><th>Old Service</th><th>New Service</th><th>Risk</th></tr>
+                </thead>
+                <tbody>
+                    {% for change in host.changed_services %}
+                    <tr class="row-changed">
+                        <td class="flags-cell">{{ change.port }}</td>
+                        <td style="color: var(--text-secondary);">{{ change.protocol }}</td>
+                        <td style="color: var(--red-text);">{{ change.old_service or "—" }}</td>
+                        <td style="color: var(--green-text);">{{ change.new_service or "—" }}</td>
+                        <td class="risk-hint-cell">{{ change.risk_hint }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% endif %}
     </div>
     {% endfor %}
 </section>
 {% endif %}
 
+{# ── No changes ── #}
 {% if not diff.new_hosts and not diff.removed_hosts and not diff.changed_hosts %}
-<p class="empty-state">No differences found between these two scans.</p>
+<div class="empty-state">
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style="margin: 0 auto 1rem; display: block; opacity: 0.25;" aria-hidden="true">
+        <circle cx="22" cy="22" r="19" stroke="currentColor" stroke-width="2"/>
+        <path d="M14 22l6 6 10-10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <p class="empty-state-title">No differences found</p>
+    <p class="empty-state-body">These two scans are identical.</p>
+</div>
 {% endif %}
 {% endblock %}

@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Not Found - Scanlyne{% endblock %}
+{% block title %}Not Found — Scanlyne{% endblock %}
 
 {% block content %}
-<h1>404 — Not Found</h1>
-<p class="empty-state">
-    That page doesn't exist.
-    <a href="{{ url_for('scan.index') }}">Go to the scan page</a>.
-</p>
+<div class="empty-state" style="padding: 4rem 2rem;">
+    <div class="error-code">404</div>
+    <p class="empty-state-title">Page not found</p>
+    <p class="empty-state-body">That page doesn't exist.</p>
+    <a href="{{ url_for('scan.index') }}" class="btn btn-primary btn-sm">Go to Run Scan</a>
+</div>
 {% endblock %}

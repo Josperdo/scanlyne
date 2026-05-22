@@ -5,6 +5,7 @@ patched wherever needed to prevent real nmap execution.
 """
 
 import base64
+import urllib.parse
 from unittest import mock
 
 import pytest
@@ -84,7 +85,15 @@ def test_post_scan_empty_target_flashes(client):
 
 
 def test_post_scan_invalid_target_flashes(client):
-    resp = client.post("/scan", data={"target": "bad; rm", "flags": ""}, follow_redirects=True)
+    # Manually encode so ';' becomes '%3B' — Werkzeug's EnvironBuilder leaves
+    # ';' unencoded, causing it to be parsed as a field separator on the server.
+    body = urllib.parse.urlencode({"target": "bad; rm", "flags": ""})
+    resp = client.post(
+        "/scan",
+        data=body.encode(),
+        content_type="application/x-www-form-urlencoded",
+        follow_redirects=True,
+    )
     assert b"Invalid target" in resp.data
 
 
@@ -329,7 +338,13 @@ def test_create_schedule_empty_target_flashes(client):
 
 
 def test_create_schedule_invalid_target_flashes(client):
-    resp = client.post("/schedules/", data={"target": "bad; cmd", "flags": "", "interval_minutes": "60"}, follow_redirects=True)
+    body = urllib.parse.urlencode({"target": "bad; cmd", "flags": "", "interval_minutes": "60"})
+    resp = client.post(
+        "/schedules/",
+        data=body.encode(),
+        content_type="application/x-www-form-urlencoded",
+        follow_redirects=True,
+    )
     assert b"Invalid target" in resp.data
 
 

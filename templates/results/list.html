@@ -1,41 +1,67 @@
 {% extends "base.html" %}
 
-{% block title %}Scan History - Scanlyne{% endblock %}
+{% block title %}Scan History — Scanlyne{% endblock %}
 
 {% block content %}
 <h1>Scan History</h1>
 
 {% if scans %}
-<table class="scan-table">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Target</th>
-            <th>Flags</th>
-            <th>Status</th>
-            <th>Started</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for scan in scans %}
-        <tr>
-            <td>{{ scan.id }}</td>
-            <td>{{ scan.target }}</td>
-            <td><code>{{ scan.flags or "—" }}</code></td>
-            <td>
-                <span class="status status-{{ scan.status }}">{{ scan.status }}</span>
-            </td>
-            <td>{{ scan.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            <td>
-                <a href="{{ url_for('results.detail', scan_id=scan.id) }}" class="btn btn-small">
-                    View
-                </a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+{% set completed_scans = scans | selectattr('status', 'equalto', 'completed') | list %}
+{% set baseline_scans  = scans | selectattr('is_baseline') | list %}
+
+<div class="stats-row">
+    <div class="stat-card stat-cyan">
+        <div class="stat-value">{{ scans | length }}</div>
+        <div class="stat-label">Total Scans</div>
+    </div>
+    <div class="stat-card stat-green">
+        <div class="stat-value">{{ completed_scans | length }}</div>
+        <div class="stat-label">Completed</div>
+    </div>
+    <div class="stat-card stat-amber">
+        <div class="stat-value">{{ baseline_scans | length }}</div>
+        <div class="stat-label">Baselines</div>
+    </div>
+</div>
+
+<div class="table-wrapper">
+    <table class="scan-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Target</th>
+                <th>Flags</th>
+                <th>Status</th>
+                <th>Started</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for scan in scans %}
+            <tr>
+                <td class="flags-cell">{{ scan.id }}</td>
+                <td class="target-cell">{{ scan.target }}</td>
+                <td class="flags-cell">{{ scan.flags or "—" }}</td>
+                <td>
+                    <span class="status status-{{ scan.status }}">{{ scan.status }}</span>
+                    {% if scan.is_baseline %}
+                    <span class="badge badge-baseline" style="margin-left: 0.35rem;">baseline</span>
+                    {% endif %}
+                </td>
+                <td style="color: var(--text-secondary); font-size: 0.82rem;">
+                    {{ scan.started_at.strftime('%Y-%m-%d %H:%M') }}
+                </td>
+                <td>
+                    <a href="{{ url_for('results.detail', scan_id=scan.id) }}" class="btn btn-secondary btn-sm">
+                        View
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
 {% else %}
 <div class="empty-state">
     <p class="empty-state-title">No scans yet</p>

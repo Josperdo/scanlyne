@@ -1,62 +1,81 @@
 {% extends "base.html" %}
 
-{% block title %}Schedules - Scanlyne{% endblock %}
+{% block title %}Schedules — Scanlyne{% endblock %}
 
 {% block content %}
 <h1>Schedules</h1>
 <p class="page-subtitle">Recurring scans run automatically in the background. Requires single-worker mode.</p>
 
 {% if schedules %}
-<a href="{{ url_for('schedules.new_schedule') }}" class="btn btn-primary" style="margin-bottom:1.5rem;display:inline-block;">New Schedule</a>
-<table class="scan-table">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Target</th>
-            <th>Flags</th>
-            <th>Interval</th>
-            <th>Status</th>
-            <th>Webhook</th>
-            <th>Last Run</th>
-            <th>Next Run</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for s in schedules %}
-        <tr>
-            <td>{{ s.id }}</td>
-            <td>{{ s.target }}</td>
-            <td><code>{{ s.flags or "--" }}</code></td>
-            <td>{{ s.interval_minutes }} min</td>
-            <td>
-                {% if s.enabled %}
-                <span class="status status-completed">enabled</span>
-                {% else %}
-                <span class="status status-failed">disabled</span>
-                {% endif %}
-            </td>
-            <td>
-                {% if s.webhook_url %}
-                <span class="status status-completed" title="{{ s.webhook_url }}">set</span>
-                {% else %}
-                <span style="color:var(--text-muted)">--</span>
-                {% endif %}
-            </td>
-            <td>{{ s.last_run_at.strftime('%Y-%m-%d %H:%M') if s.last_run_at else "--" }}</td>
-            <td>{{ s.next_run_at.strftime('%Y-%m-%d %H:%M') if s.next_run_at else "--" }}</td>
-            <td>
-                <form action="{{ url_for('schedules.toggle_schedule', schedule_id=s.id) }}" method="POST" style="display:inline">
-                    <button type="submit" class="btn btn-small">{{ "Disable" if s.enabled else "Enable" }}</button>
-                </form>
-                <form action="{{ url_for('schedules.delete_schedule', schedule_id=s.id) }}" method="POST" style="display:inline">
-                    <button type="submit" class="btn btn-small btn-danger" onclick="return confirm('Delete schedule #{{ s.id }}?')">Delete</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div style="margin-bottom: 1.25rem;">
+    <a href="{{ url_for('schedules.new_schedule') }}" class="btn btn-primary">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+            <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M6.5 3.5v6M3.5 6.5h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        New Schedule
+    </a>
+</div>
+
+<div class="table-wrapper">
+    <table class="scan-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Target</th>
+                <th>Flags</th>
+                <th>Interval</th>
+                <th>Status</th>
+                <th>Webhook</th>
+                <th>Last Run</th>
+                <th>Next Run</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in schedules %}
+            <tr>
+                <td class="flags-cell">{{ s.id }}</td>
+                <td class="target-cell">{{ s.target }}</td>
+                <td class="flags-cell">{{ s.flags or "—" }}</td>
+                <td style="color: var(--text-secondary);">{{ s.interval_minutes }} min</td>
+                <td>
+                    {% if s.enabled %}
+                    <span class="status status-completed">enabled</span>
+                    {% else %}
+                    <span class="status status-failed">disabled</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if s.webhook_url %}
+                    <span class="status status-running" title="{{ s.webhook_url }}">set</span>
+                    {% else %}
+                    <span style="color: var(--text-muted);">—</span>
+                    {% endif %}
+                </td>
+                <td style="color: var(--text-secondary); font-size: 0.82rem;">
+                    {{ s.last_run_at.strftime('%Y-%m-%d %H:%M') if s.last_run_at else "—" }}
+                </td>
+                <td style="color: var(--text-secondary); font-size: 0.82rem;">
+                    {{ s.next_run_at.strftime('%Y-%m-%d %H:%M') if s.next_run_at else "—" }}
+                </td>
+                <td>
+                    <form action="{{ url_for('schedules.toggle_schedule', schedule_id=s.id) }}" method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-secondary btn-sm">
+                            {{ "Disable" if s.enabled else "Enable" }}
+                        </button>
+                    </form>
+                    <form action="{{ url_for('schedules.delete_schedule', schedule_id=s.id) }}" method="POST" style="display: inline; margin-left: 0.3rem;">
+                        <button type="submit" class="btn btn-danger btn-sm"
+                                onclick="return confirm('Delete schedule #{{ s.id }}?')">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
 {% else %}
 <div class="empty-state">
     <p class="empty-state-title">No schedules configured</p>

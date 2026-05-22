@@ -96,6 +96,8 @@ function initScanForm() {
             const submitBtn = form.querySelector('button[type="submit"]');
             submitBtn.disabled = true;
             submitBtn.textContent = 'Scanning…';
+            submitBtn.classList.remove('btn-primary');
+            submitBtn.classList.add('btn-scanning');
         }
     });
 }

@@ -4,37 +4,103 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Scanlyne{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-brand">Scanlyne</div>
-        <ul class="nav-links">
-            <li><a href="{{ url_for('scan.index') }}">Run Scan</a></li>
-            <li><a href="{{ url_for('results.list_scans') }}">Scan History</a></li>
-            <li><a href="{{ url_for('schedules.list_schedules') }}">Schedules</a></li>
-            <li><a href="{{ url_for('compare.select') }}">Change Detection</a></li>
-        </ul>
-    </nav>
+<div class="layout">
 
-    <main class="container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="flash-messages">
-                    {% for category, message in messages %}
-                        <div class="flash flash-{{ category }}">{{ message }}</div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
+    <!-- ── Sidebar ─────────────────────────────────────────── -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="14" cy="14" r="12" stroke="currentColor" stroke-width="1.25" opacity="0.25"/>
+                <circle cx="14" cy="14" r="7.5" stroke="currentColor" stroke-width="1.25" opacity="0.5"/>
+                <circle cx="14" cy="14" r="3" stroke="currentColor" stroke-width="1.5"/>
+                <line x1="14" y1="1" x2="14" y2="5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="14" y1="22.5" x2="14" y2="27" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="1" y1="14" x2="5.5" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="22.5" y1="14" x2="27" y2="14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="14" cy="14" r="1.25" fill="currentColor"/>
+            </svg>
+            <div>
+                <div class="sidebar-logo-text">Scanlyne</div>
+                <span class="sidebar-logo-sub">Network Monitor</span>
+            </div>
+        </div>
 
-        {% block content %}{% endblock %}
-    </main>
+        <nav class="sidebar-nav">
+            <span class="sidebar-section-label">Actions</span>
 
-    <footer class="footer">
-        <p>Scanlyne — network change detection</p>
-    </footer>
+            <a href="{{ url_for('scan.index') }}"
+               class="nav-item {% if request.endpoint == 'scan.index' %}active{% endif %}">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                    <path d="M2.5 4.5l4 3-4 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M8 10.5h4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <span>Run Scan</span>
+            </a>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+            <span class="sidebar-section-label">Data</span>
+
+            <a href="{{ url_for('results.list_scans') }}"
+               class="nav-item {% if request.endpoint in ['results.list_scans', 'results.detail'] %}active{% endif %}">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                    <rect x="1.5" y="2.5" width="12" height="2" rx="1" fill="currentColor" opacity="0.4"/>
+                    <rect x="1.5" y="6.5" width="12" height="2" rx="1" fill="currentColor" opacity="0.65"/>
+                    <rect x="1.5" y="10.5" width="12" height="2" rx="1" fill="currentColor"/>
+                </svg>
+                <span>Scan History</span>
+            </a>
+
+            <a href="{{ url_for('schedules.list_schedules') }}"
+               class="nav-item {% if request.endpoint in ['schedules.list_schedules', 'schedules.new_schedule', 'schedules.create_schedule'] %}active{% endif %}">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                    <circle cx="7.5" cy="7.5" r="6" stroke="currentColor" stroke-width="1.4"/>
+                    <path d="M7.5 4v4l2.5 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Schedules</span>
+            </a>
+
+            <a href="{{ url_for('compare.select') }}"
+               class="nav-item {% if request.endpoint in ['compare.select', 'compare.run_diff', 'compare.baseline_vs_latest'] %}active{% endif %}">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                    <path d="M7.5 1.5L1.5 4.5v4c0 3.5 2.5 5.5 6 6 3.5-.5 6-2.5 6-6v-4l-6-3z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
+                    <path d="M5 7.5l2 2 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Change Detection</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-status">
+                <span class="status-dot"></span>
+                <span>System Ready</span>
+            </div>
+            <div class="sidebar-footer-sub">nmap-based network monitor</div>
+        </div>
+    </aside>
+
+    <!-- ── Main ───────────────────────────────────────────── -->
+    <div class="main-wrapper">
+        <main class="main-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash flash-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+</div>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
