@@ -35,6 +35,11 @@ def validate_target(target: str) -> bool:
     """
     if not target or len(target) > 255:
         return False
+    if target.startswith("-"):
+        # Targets starting with "-" would be parsed as an nmap option rather
+        # than a positional argument, bypassing the flag allowlist entirely
+        # (e.g. "-iL/etc/passwd" or "--script=...").
+        return False
     return bool(TARGET_PATTERN.match(target))
 
 
@@ -90,7 +95,7 @@ def run_scan(target: str, flags: str, output_dir: str) -> str:
     cmd = ["nmap"]
     if flags.strip():
         cmd.extend(shlex.split(flags))
-    cmd.extend(["-oX", output_file, target])
+    cmd.extend(["-oX", output_file, "--", target])
 
     logger.info("Running nmap: %s", " ".join(cmd))
 

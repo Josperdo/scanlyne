@@ -51,6 +51,13 @@ def test_target_with_dollar():
     assert validate_target("192.168.1.$host") is False
 
 
+def test_target_leading_dash_rejected():
+    # A target starting with "-" would be parsed by nmap as an option
+    # rather than a positional argument, bypassing the flag allowlist.
+    assert validate_target("-iL/etc/passwd") is False
+    assert validate_target("--script=evil") is False
+
+
 # ---------------------------------------------------------------------------
 # validate_flags
 # ---------------------------------------------------------------------------
@@ -111,10 +118,13 @@ def test_disallowed_version_script_flag():
 def test_run_scan_returns_xml_path(tmp_path):
     mock_result = mock.MagicMock()
     mock_result.returncode = 0
-    with mock.patch("scanner.subprocess.run", return_value=mock_result):
+    with mock.patch("scanner.subprocess.run", return_value=mock_result) as mock_run:
         path = run_scan("192.168.1.1", "-sV", str(tmp_path))
     assert path.endswith(".xml")
     assert str(tmp_path) in path
+    # Target must follow a "--" separator so nmap can't misparse it as a flag.
+    cmd = mock_run.call_args[0][0]
+    assert cmd[-2:] == ["--", "192.168.1.1"]
 
 
 def test_run_scan_invalid_target_raises(tmp_path):

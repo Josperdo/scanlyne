@@ -1,6 +1,7 @@
 """Flask application factory for the Scanlyne GUI."""
 
 import base64
+import hmac
 import logging
 import os
 import threading
@@ -91,7 +92,10 @@ def create_app(config_class: type = Config) -> Flask:
                     401,
                     {"WWW-Authenticate": 'Basic realm="Scanlyne"'},
                 )
-            if req_user != auth_user or req_pass != auth_pass:
+            if not (
+                hmac.compare_digest(req_user, auth_user)
+                and hmac.compare_digest(req_pass, auth_pass)
+            ):
                 return Response(
                     "Authentication required.",
                     401,
